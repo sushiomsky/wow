@@ -1,0 +1,519 @@
+/* multiplayer.css — Multiplayer overlay, lobby, settings, HUD */
+
+#overlay {
+    position: fixed;
+    z-index: 500;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'C64ProRegular', monospace;
+    color: #fff;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 24px;
+}
+
+#overlay h1 {
+    font-size: 28px;
+    color: #DFF60A;
+    margin-bottom: 18px;
+    letter-spacing: 2px;
+}
+
+#overlay p {
+    font-size: 14px;
+    color: #aaa;
+    margin: 6px 0;
+}
+
+.subtext {
+    font-size: 11px;
+    color: #777;
+    max-width: 760px;
+    line-height: 1.4;
+    text-align: center;
+}
+
+.btn {
+    margin: 10px;
+    padding: 14px 32px;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: bold;
+    background: #a00;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.btn[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn:hover {
+    background: #c00;
+}
+
+.btn.blue {
+    background: #15c;
+}
+
+.btn.blue:hover {
+    background: #27e;
+}
+
+.btn.green {
+    background: #1f8f1f;
+}
+
+.btn.green:hover {
+    background: #27b327;
+}
+
+.btn.dark {
+    background: #333;
+}
+
+.btn.dark:hover {
+    background: #555;
+}
+
+.controls-preflight {
+    border: 2px solid #DFF60A;
+    background: rgba(20, 20, 0, 0.85);
+    padding: 14px 18px;
+    margin: 8px auto 18px;
+    max-width: 720px;
+    text-align: center;
+    box-shadow: 0 0 18px rgba(223, 246, 10, 0.18);
+}
+
+.controls-preflight.confirmed {
+    border-color: #59FE59;
+    background: rgba(0, 24, 0, 0.75);
+}
+
+.controls-preflight h2 {
+    font-size: 16px;
+    color: #DFF60A;
+    margin: 0 0 8px;
+    letter-spacing: 2px;
+}
+
+.controls-preflight.confirmed h2 {
+    color: #59FE59;
+}
+
+.controls-preflight .btn {
+    margin: 8px 0 4px;
+    font-size: 13px;
+    padding: 10px 18px;
+}
+
+#settingsToggler {
+    position: fixed;
+    z-index: 650;
+    right: 12px;
+    bottom: 12px;
+    font-family: 'C64ProRegular', monospace;
+}
+
+#settingsPanel {
+    position: fixed;
+    z-index: 640;
+    right: 12px;
+    bottom: 48px;
+    width: min(360px, calc(100vw - 24px));
+    background: rgba(0, 0, 0, 0.92);
+    color: #fff;
+    border: 1px solid #555;
+    padding: 14px;
+    box-sizing: border-box;
+    font-family: 'C64ProRegular', monospace;
+    font-size: 11px;
+}
+
+#settingsPanel h2 {
+    color: #DFF60A;
+    font-size: 14px;
+    margin: 0 0 10px;
+}
+
+#settingsPanel label {
+    display: block;
+    margin: 10px 0;
+}
+
+#settingsPanel select,
+#settingsPanel button {
+    font-family: inherit;
+}
+
+.control-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+.control-grid button {
+    padding: 8px;
+    background: #222;
+    color: #fff;
+    border: 1px solid #555;
+}
+
+#networkDebug {
+    position: fixed;
+    z-index: 420;
+    left: 8px;
+    top: 8px;
+    color: #59FE59;
+    font-family: 'C64ProRegular', monospace;
+    font-size: 10px;
+    pointer-events: none;
+    text-shadow: 1px 1px #000;
+}
+
+#status {
+    font-size: 13px;
+    color: #59FE59;
+    margin-top: 18px;
+    min-height: 20px;
+}
+
+#status.error {
+    color: #ff7070;
+}
+
+#hud {
+    position: fixed;
+    z-index: 400;
+    top: 5px;
+    right: 10px;
+    font-family: 'C64ProRegular', monospace;
+    font-size: 12px;
+    color: #DFF60A;
+    pointer-events: none;
+}
+
+#controls-hint {
+    position: fixed;
+    z-index: 400;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'C64ProRegular', monospace;
+    font-size: 10px;
+    color: #555;
+    pointer-events: none;
+}
+body.in-game #controls-hint,
+body.in-game #settingsToggler,
+body.in-game #settingsPanel {
+    display: none !important;
+}
+
+/* Private room share panel */
+#mp-share-panel {
+    margin-top: 16px; text-align: center;
+    animation: mp-share-fadein 0.5s ease-out;
+}
+@keyframes mp-share-fadein {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.mp-share-code {
+    font-size: 2.2rem; font-weight: bold; color: #ff0;
+    letter-spacing: 0.3em; font-family: 'C64Pro', monospace;
+    text-shadow: 0 0 10px rgba(255,255,0,0.4);
+    margin-bottom: 6px;
+}
+.mp-share-label {
+    font-size: 0.75rem; color: #888; letter-spacing: 0.1em;
+    margin-bottom: 10px;
+}
+.mp-share-buttons {
+    display: flex; gap: 10px; justify-content: center;
+}
+.mp-share-buttons .share-btn {
+    display: inline-block; padding: 6px 14px;
+    font-family: 'C64Pro', monospace; font-size: 0.7rem;
+    color: #fff; border: 1px solid #555; background: #222;
+    cursor: pointer; text-decoration: none; letter-spacing: 0.1em;
+    transition: background 0.15s, border-color 0.15s;
+}
+.mp-share-buttons .share-btn:hover {
+    background: #444; border-color: #aaa;
+}
+.mp-share-buttons .share-twitter { border-color: #1da1f2; }
+.mp-share-buttons .share-twitter:hover { background: #1da1f2; }
+.mp-share-waiting {
+    margin-top: 12px; font-size: 0.7rem; color: #0f0;
+    animation: mp-blink 1.5s infinite alternate;
+}
+@keyframes mp-blink {
+    from { opacity: 0.4; } to { opacity: 1; }
+}
+
+/* ─── Match Results Overlay ───────────────────────────────────────────────── */
+#match-results-overlay {
+    position: fixed;
+    z-index: 1000;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+#match-results-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+body.match-results-open {
+    overflow: hidden;
+}
+.match-results-card {
+    text-align: center;
+    font-family: 'C64ProRegular', monospace;
+    color: #fff;
+    max-width: 440px;
+    width: 90%;
+}
+.match-results-card h2 {
+    font-size: 32px;
+    color: #ff4444;
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+    text-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+}
+.match-results-mode {
+    font-size: 13px;
+    color: #888;
+    letter-spacing: 2px;
+    margin-bottom: 28px;
+    text-transform: uppercase;
+}
+.match-results-stats {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-bottom: 36px;
+}
+.match-results-stats .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.match-results-stats .stat-value {
+    font-size: 28px;
+    color: #DFF60A;
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(223, 246, 10, 0.3);
+}
+.match-results-stats .stat-label {
+    font-size: 10px;
+    color: #666;
+    letter-spacing: 3px;
+    margin-top: 4px;
+}
+.match-results-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+.match-btn-play-again {
+    background: #1f8f1f !important;
+    font-size: 18px !important;
+    padding: 16px 48px !important;
+    letter-spacing: 3px !important;
+}
+.match-btn-play-again:hover {
+    background: #27b327 !important;
+}
+.match-btn-menu {
+    background: #333 !important;
+    font-size: 12px !important;
+    padding: 10px 24px !important;
+}
+.match-btn-menu:hover {
+    background: #555 !important;
+}
+.match-results-hints {
+    margin-top: 12px;
+    font-size: 11px;
+    color: #b8b8b8;
+    letter-spacing: 1px;
+}
+
+.btn.purple {
+    background: #7b2d8e;
+}
+.btn.purple:hover {
+    background: #9b3dae;
+}
+
+/* ─── Lobby Mode Groups ──────────────────────────────────────────────────── */
+.lobby-modes {
+    display: flex;
+    gap: 16px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 700px;
+}
+.mode-group {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #333;
+    padding: 16px 18px;
+    text-align: center;
+    flex: 1 1 240px;
+    min-width: 240px;
+    max-width: 320px;
+}
+.mode-group-title {
+    font-size: 11px;
+    color: #888;
+    letter-spacing: 3px;
+    margin: 0 0 12px;
+    font-weight: normal;
+}
+.mode-group .btn {
+    display: block;
+    width: 100%;
+    margin: 6px 0;
+    padding: 12px 8px;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+.mode-hint {
+    font-size: 9px;
+    color: #555;
+    margin: 8px 0 0;
+    line-height: 1.4;
+}
+.private-join {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+.code-input {
+    flex: 1;
+    padding: 10px 8px;
+    font-family: inherit;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    background: #111;
+    border: 1px solid #444;
+    color: #fff;
+    box-sizing: border-box;
+}
+.private-join .btn {
+    width: auto;
+    margin: 0;
+    padding: 10px 14px;
+    font-size: 12px;
+}
+.player-name {
+    min-height: 16px;
+    margin-top: -6px;
+    color: #59FE59;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+.open-games-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    font-size: 10px;
+    color: #888;
+    letter-spacing: 2px;
+}
+.open-games-header button {
+    font-family: inherit;
+    background: #111;
+    color: #fff;
+    border: 1px solid #444;
+    cursor: pointer;
+}
+.open-games-list {
+    margin-top: 8px;
+    min-height: 34px;
+    font-size: 10px;
+    color: #777;
+}
+.open-game-row {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+    margin: 6px 0;
+    padding: 9px 8px;
+    font-family: inherit;
+    background: #111;
+    color: #fff;
+    border: 1px solid #3b3b3b;
+    cursor: pointer;
+    text-align: left;
+}
+.open-game-row:hover { border-color: #DFF60A; }
+.open-game-host { color: #59FE59; overflow: hidden; text-overflow: ellipsis; }
+.open-game-code { color: #ff0; letter-spacing: 2px; }
+.open-game-action { color: #fff; font-size: 9px; }
+.lobby-footer {
+    margin-top: 24px;
+    display: flex;
+    gap: 20px;
+    font-size: 11px;
+}
+.lobby-footer a {
+    color: #6c5eb5;
+    text-decoration: none;
+    letter-spacing: 1px;
+}
+.lobby-footer a:hover {
+    color: #9b8dd5;
+}
+
+/* ─── Mobile Responsiveness ───────────────────────────────────────────────── */
+@media (max-width: 600px) {
+    .lobby-modes {
+        flex-direction: column;
+        align-items: center;
+    }
+    .mode-group {
+        max-width: 90%;
+        width: 90%;
+    }
+    #overlay h1 {
+        font-size: 20px;
+    }
+    .match-results-stats {
+        gap: 16px;
+    }
+    .match-results-stats .stat-value {
+        font-size: 22px;
+    }
+    .match-btn-play-again {
+        font-size: 14px !important;
+        padding: 14px 32px !important;
+    }
+}

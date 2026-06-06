@@ -1,0 +1,152 @@
+/* singleplayer.css — Classic singleplayer menu and chrome */
+
+#body {
+    position: relative;
+    z-index: 50;
+    top: 0;
+    left: 0;
+    margin-left: 0;
+    width: auto;
+    height: 100%;
+    transition: margin-left 0.2s linear 0s;
+}
+
+#body.menu {
+    margin-left: 300px;
+}
+
+#menuOverlay {
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#menuToggler {
+    box-sizing: border-box;
+    position: fixed;
+    z-index: 1400;
+    top: 5px;
+    left: 5px;
+    width: 105px;
+    padding-left: 40px;
+    padding-top: 12px;
+    height: 38px;
+    cursor: pointer;
+    background-color: #a00;
+    background-image: url("/images/v4.0/menu-toggler.png");
+    background-repeat: no-repeat;
+    background-position: left center;
+    font-size: 16px;
+    text-transform: uppercase;
+    color: white;
+    overflow: hidden;
+    transition: width 0.2s linear 0s;
+}
+
+#menuToggler.small {
+    width: 38px;
+    padding-left: 0;
+    background-color: #444;
+}
+
+#menuToggler.small span {
+    display: none;
+}
+
+#menuToggler:hover {
+    background-color: #b11;
+}
+
+#menuToggler.small:hover {
+    background-color: #555;
+}
+
+#menu {
+    position: fixed;
+    z-index: 1500;
+    top: 0;
+    left: -500px;
+    width: 320px;
+    max-width: 75%;
+    height: 100%;
+    background: #555;
+    overflow-x: hidden;
+    overflow-y: auto;
+    transition: left 0.2s linear 0s;
+}
+
+#menu.opened {
+    left: 0;
+}
+
+#menu > .l1 {
+    display: block;
+    box-sizing: border-box;
+    padding: 15px 0 0;
+    background: #15c;
+    color: #fff;
+    text-align: center;
+    text-transform: uppercase;
+    font-size: 16px;
+    border-bottom: 1px solid #137;
+    cursor: pointer;
+}
+
+#menu > .l1.startButton {
+    background: #a00;
+}
+
+#menu > .l1:hover {
+    background: #27e;
+}
+
+#menu > .l1.startButton:hover {
+    background: #b11;
+}
+
+#menu > .l1.nosubmenu {
+    padding-bottom: 10px;
+}
+
+#menu > .l1 .items {
+    margin-top: 10px;
+    border-top: 1px solid #137;
+    transition: height 0.2s linear 0s;
+    overflow: hidden;
+    background: #249;
+}
+
+#menu > .l1 .items.closed {
+    height: 0 !important;
+    border-top: none;
+}
+
+#menu > .l1 .items > div {
+    border-bottom: 1px solid #137;
+    padding: 5px;
+    font-size: 16px;
+    color: #fff;
+}
+
+#menu > .l1 .items > div:hover {
+    background: #46a;
+}
+
+#menu > .l1 .items > div.active {
+    background: #ff0;
+    color: #137;
+}
+
+#buymeacoffee {
+    position: fixed;
+    top: 2px;
+    right: 2px;
+    z-index: 2500;
+    display: block;
+    width: 42px;
+    height: 48px;
+    background: url("/images/v4.0/buy-me-a-coffee-button-dark.png") no-repeat;
+}

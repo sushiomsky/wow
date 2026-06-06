@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Classic game client -->
+    <meta charset="UTF-8">
+    <meta name="description" content="Wizard Of Wor classic browser game.">
+    <meta name="viewport"
+        content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+    <meta name="robots" content="index,follow">
+    <link rel="stylesheet" href="/frontend/styles/shared.css">
+    <link rel="stylesheet" href="/frontend/styles/singleplayer.css">
+    <link rel="shortcut icon" href="/favicon.ico">
+    <title>Wizard Of Wor</title>
+    <meta property="og:title" content="Wizard Of Wor">
+    <meta property="og:type" content="game">
+    <meta property="og:url" content="https://wizardofwor.duckdns.org/index.html">
+    <meta property="og:image" content="https://wizardofwor.duckdns.org/images/v2.0/wizard-of-wor-icon.png">
+    <meta property="og:site_name" content="Wizard Of Wor">
+    <meta property="og:description"
+        content="Wizard Of Wor is a legendary arcade game from 1983. Now you can play with it in your browser. Have fun!">
+</head>
+
+<body data-sid="">
+    <div id="body">
+        <div id="border"><canvas id="screen" width="960" height="600" class="hide" moz-opaque></canvas><canvas
+                id="visualFilterLayer" width="960" height="600"></canvas></div>
+        <div id="menuOverlay" class="hide"></div>
+        <div id="menuToggler" class="hide"><span>Menu</span></div>
+        <div id="menu">
+            <div class="l1 back nosubmenu">&lt; Close</div>
+            <div id="toggleFullscreen" class="l1 nosubmenu">Fullscreen</div>
+            <div class="l1">Visual filter<div id="visualFilterSelect" class="items closed">
+                    <div data-value="none">none</div>
+                    <div data-value="scanlines">Scan lines</div>
+                    <div data-value="bwTv">black and white TV</div>
+                    <div data-value="colorTv">color TV</div>
+                    <div data-value="greenC64monitor">green C64 monitor</div>
+                </div>
+            </div>
+            <div class="l1">Sounds<div id="soundSelect" class="items closed">
+                    <div data-value="on">on</div>
+                    <div data-value="off">off</div>
+                </div>
+            </div>
+            <div id="ctrlYellow" class="l1">Yellow warrior control<div id="yellowControlSelect" class="items closed">
+                    <div data-value="keyboard">keyboard</div>
+                    <div data-value="gamepad0">gamepad #1</div>
+                    <div data-value="gamepad1">gamepad #2</div>
+                    <div id="yellowBindUp">UP: -</div>
+                    <div id="yellowBindDown">DOWN: -</div>
+                    <div id="yellowBindLeft">LEFT: -</div>
+                    <div id="yellowBindRight">RIGHT: -</div>
+                    <div id="yellowBindFire">FIRE: -</div>
+                </div>
+            </div>
+            <div id="ctrlBlue" class="l1">Blue warrior control<div id="blueControlSelect" class="items closed">
+                    <div data-value="keyboard">keyboard</div>
+                    <div data-value="gamepad0">gamepad #1</div>
+                    <div data-value="gamepad1">gamepad #2</div>
+                    <div id="blueBindUp">UP: -</div>
+                    <div id="blueBindDown">DOWN: -</div>
+                    <div id="blueBindLeft">LEFT: -</div>
+                    <div id="blueBindRight">RIGHT: -</div>
+                    <div id="blueBindFire">FIRE: -</div>
+                </div>
+            </div>
+        </div>
+    </div><img src="/images/v4.0/noise.png" id="crtNoise" class="hide" alt=""><span style="font-family:WizardOfWor"></span>
+    <script type="module" src="/frontend/game/singleplayer/App.js"></script>
+</body>
+
+</html>

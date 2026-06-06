@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+    <title>Wizard Of Wor — Multiplayer</title>
+    <link rel="stylesheet" href="/frontend/styles/shared.css">
+    <link rel="stylesheet" href="/frontend/styles/multiplayer.css">
+    <link rel="shortcut icon" href="/favicon.ico">
+</head>
+<body>
+    <div id="overlay">
+        <h1>WIZARD OF WOR</h1>
+        <p>Choose a mode</p>
+        <div id="player-name" class="player-name"></div>
+
+        <section id="controls-preflight" class="controls-preflight" aria-live="polite">
+            <h2>SELECT CONTROLS FIRST</h2>
+            <p id="controls-preflight-summary">Choose how you want to move and shoot before joining a network game.</p>
+            <button type="button" class="btn green" id="btnConfirmControls">✓ USE THESE CONTROLS</button>
+            <p class="mode-hint">You can change them later with ⚙ Settings.</p>
+        </section>
+
+        <div class="lobby-modes">
+            <div class="mode-group">
+                <h3 class="mode-group-title">⚔ BATTLE ROYALE</h3>
+                <button class="btn" id="btnSolo">▶ ENDLESS BATTLE ROYALE</button>
+                <button class="btn purple" id="btnSitNGo">▶ SIT-N-GO BR</button>
+                <button class="btn blue" id="btnTeamBr">▶ TEAM ENDLESS</button>
+                <button class="btn green" id="btnTeamSitNGo">▶ TEAM SIT-N-GO</button>
+                <p class="mode-hint">Join battle modes instantly or queue for a bigger match</p>
+            </div>
+
+            <div class="mode-group">
+                <h3 class="mode-group-title">🔗 2 PLAYER NETWORK</h3>
+                <button class="btn dark" id="btnPairCreate">OPEN 2P GAME</button>
+                <div class="private-join hide">
+                    <input id="pairCode" type="text" maxlength="12" placeholder="Room code" class="code-input">
+                    <button class="btn dark" id="btnPairJoin">JOIN</button>
+                </div>
+                <div class="open-games-header">
+                    <span>OPEN GAMES</span>
+                    <button type="button" id="btnRefreshGames">↻</button>
+                </div>
+                <div id="open-games-list" class="open-games-list">No open games yet.</div>
+            </div>
+        </div>
+
+        <button class="btn green hide" id="btnRetry">↻ RETRY LAST MODE</button>
+        <div id="status" role="status" aria-live="polite"></div>
+
+        <div class="lobby-footer">
+            <a href="/">🏠 Home</a>
+        </div>
+    </div>
+
+    <div id="body">
+        <div id="border">
+            <canvas id="screen" width="960" height="600" class="hide" moz-opaque></canvas>
+            <canvas id="visualFilterLayer" width="960" height="600"></canvas>
+        </div>
+    </div>
+    <img src="/images/v4.0/noise.png" id="crtNoise" class="hide" alt="">
+    <span style="font-family:WizardOfWor"></span>
+
+    <div id="hud" class="hide">
+        <span id="hud-dungeon"></span>
+    </div>
+    <div id="controls-hint">
+        ARROWS + CTRL to move/shoot &nbsp;|&nbsp; ESC: back to menu
+    </div>
+    <button id="settingsToggler" type="button">⚙ Settings</button>
+    <section id="settingsPanel" class="hide">
+        <h2>Gameplay Settings</h2>
+        <label>
+            Controls
+            <select id="settingControls">
+                <option value="keyboard">Keyboard</option>
+                <option value="gamepad0">Gamepad #1</option>
+                <option value="gamepad1">Gamepad #2</option>
+            </select>
+        </label>
+        <div class="control-grid">
+            <button type="button" id="settingControlUp">UP: -</button>
+            <button type="button" id="settingControlDown">DOWN: -</button>
+            <button type="button" id="settingControlLeft">LEFT: -</button>
+            <button type="button" id="settingControlRight">RIGHT: -</button>
+            <button type="button" id="settingControlFire">FIRE: -</button>
+        </div>
+        <label>
+            Visual filter
+            <select id="settingVisualFilter">
+                <option value="none">None</option>
+                <option value="scanlines">Scan lines</option>
+                <option value="bwTv">Black and white TV</option>
+                <option value="colorTv">Color TV</option>
+                <option value="greenC64monitor">Green C64 monitor</option>
+            </select>
+        </label>
+        <label>
+            Sound
+            <select id="settingSound">
+                <option value="on">On</option>
+                <option value="off">Off</option>
+            </select>
+        </label>
+        <p class="help">Settings apply immediately during gameplay and are saved for future sessions.</p>
+    </section>
+
+    <script type="module" src="/frontend/game/multiplayer/client/MultiplayerApp.js"></script>
+    <script>
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const mode = params.get('mode');
+            if (mode !== 'endless') return;
+
+            function tryAutoClick() {
+                const button = document.getElementById('btnSolo');
+                if (button) button.click();
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => setTimeout(tryAutoClick, 1500));
+            } else {
+                setTimeout(tryAutoClick, 1500);
+            }
+        })();
+    </script>
+</body>
+</html>

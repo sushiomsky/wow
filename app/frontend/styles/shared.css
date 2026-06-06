@@ -1,0 +1,103 @@
+/* shared.css — Fonts, resets, canvas, and visual-filter styles shared by all game modes */
+
+@font-face {
+    font-family: 'WizardOfWor';
+    src: url('/fonts/v2.0/wizardofwor-webfont.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'C64ProRegular';
+    src: url('/fonts/v2.0/c64_pro_v1.0-style-webfont-webfont.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+body, canvas, div, html, img, span {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 100%;
+    font: inherit;
+    vertical-align: baseline;
+}
+
+html {
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+}
+
+body {
+    position: relative;
+    height: 100%;
+    font-family: 'C64ProRegular';
+    font-size: 8px;
+    line-height: 1;
+    color: #fff;
+    background: #000;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+a { text-decoration: none; }
+*:focus { outline: none; }
+
+.hide { display: none !important; }
+
+#border {
+    position: absolute;
+    z-index: 80;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#screen {
+    position: absolute;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 960px;
+    height: 600px;
+    transform-origin: 0 0;
+    -webkit-transform-origin: 0 0;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -o-crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+}
+
+#visualFilterLayer {
+    position: absolute;
+    z-index: 120;
+    pointer-events: none;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -o-crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+}
+
+/* Screen-reader only utility — visually hidden but accessible */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

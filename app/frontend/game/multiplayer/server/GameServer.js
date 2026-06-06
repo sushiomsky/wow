@@ -98,6 +98,18 @@ class GameServer {
         }
     }
 
+    _leaveCurrentGame(conn) {
+        if (!conn.player) return;
+        const dungeon = this.dungeons.get(conn.dungeonId);
+        if (dungeon) {
+            dungeon.removePlayer(conn.player);
+            this._checkDungeonEmpty(dungeon);
+        }
+        conn.player = null;
+        conn.dungeonId = null;
+        conn.mode = null;
+    }
+
     _onDisconnect(playerId) {
         const conn = this.connections.get(playerId);
         if (!conn) return;
@@ -114,21 +126,15 @@ class GameServer {
         this.teamEndlessQueue.removePlayer(playerId);
         this.teamSitNGoQueue.removePlayer(playerId);
         
-        if (conn.player) {
-            const dungeon = this.dungeons.get(conn.dungeonId);
-            if (dungeon) {
-                dungeon.removePlayer(conn.player);
-                this._checkDungeonEmpty(dungeon);
-            }
-        }
-        let lobbyRemoved = false;
+        this._leaveCurrentGame(conn);
+        
         for (const [code, lobby] of this.privatePairLobbies.entries()) {
             if (lobby.hostId === playerId) {
+                if (lobby.timeoutId) clearTimeout(lobby.timeoutId);
                 this.privatePairLobbies.delete(code);
-                lobbyRemoved = true;
+                this._broadcastOpenGames();
             }
         }
-        if (lobbyRemoved) this._broadcastOpenGames();
         this.connections.delete(playerId);
         console.log(`[GameServer] player ${playerId} disconnected`);
     }
@@ -174,28 +180,32 @@ class GameServer {
     
     _joinEndlessBR(playerId, conn) {
         console.log('[GameServer] Player requesting endless BR:', playerId);
+        this._leaveCurrentGame(conn);
         this.endlessBRQueue.addPlayer(playerId, conn);
     }
     
     _joinSitNGoBR(playerId, conn) {
         console.log('[GameServer] Player requesting sit-n-go BR:', playerId);
+        this._leaveCurrentGame(conn);
         this.sitNGoQueue.addPlayer(playerId, conn);
     }
     
     _joinTeamEndlessBR(playerId, conn) {
         console.log('[GameServer] Player requesting team endless BR:', playerId);
+        this._leaveCurrentGame(conn);
         this.teamEndlessQueue.addPlayer(playerId, conn);
     }
     
     _joinTeamSitNGoBR(playerId, conn) {
         console.log('[GameServer] Player requesting team sit-n-go BR:', playerId);
+        this._leaveCurrentGame(conn);
         this.teamSitNGoQueue.addPlayer(playerId, conn);
     }
 
     // ─── Room Management ──────────────────────────────────────────────────────
 
     _createPrivatePair(playerId, conn) {
-        if (conn.player) return;
+        this._leaveCurrentGame(conn);
         const dungeon = this._createDungeon();
         dungeon.matchMode = 'classic_private_pair';
         const player = new ServerPlayer(0, dungeon, playerId, dungeon.id);
@@ -207,7 +217,25 @@ class GameServer {
         dungeon.addPlayer(player);
 
         const code = this._generatePrivateCode();
-        this.privatePairLobbies.set(code, { hostConn: conn, hostId: playerId, hostName: conn.username, dungeon, createdAt: Date.now() });
+        
+        const timeoutId = setTimeout(() => {
+            const lobby = this.privatePairLobbies.get(code);
+            if (lobby && lobby.hostConn) {
+                this._send(lobby.hostConn.ws, { type: 'join_error', message: 'Room timed out. Please create a new one.' });
+                this.privatePairLobbies.delete(code);
+                this.onDungeonDestroyed(dungeon.id);
+                this._broadcastOpenGames();
+            }
+        }, 5 * 60 * 1000); // 5 minutes
+
+        this.privatePairLobbies.set(code, { 
+            hostConn: conn, 
+            hostId: playerId, 
+            hostName: conn.username, 
+            dungeon, 
+            createdAt: Date.now(),
+            timeoutId
+        });
         const joinUrl = `/?room=${encodeURIComponent(code)}`;
         this._send(conn.ws, { type: 'private_pair_created', code, joinUrl, username: conn.username });
         this._send(conn.ws, { type: 'waiting_for_partner' });
@@ -216,21 +244,24 @@ class GameServer {
     }
 
     _joinPrivatePair(playerId, conn, rawCode) {
+        this._leaveCurrentGame(conn);
         const code = (rawCode || '').toString().trim().toUpperCase();
         const lobby = this.privatePairLobbies.get(code);
         if (!lobby || lobby.hostId === playerId) {
             this._send(conn.ws, { type: 'join_error', message: 'Invalid or expired private link.' });
             return;
         }
+        if (lobby.timeoutId) {
+            clearTimeout(lobby.timeoutId);
+        }
+        this.privatePairLobbies.delete(code);
         const sharedDungeon = lobby.dungeon;
         if (!sharedDungeon || sharedDungeon.lifecycleState === STATE.DESTROYED) {
-            this.privatePairLobbies.delete(code);
             this._broadcastOpenGames();
             this._send(conn.ws, { type: 'join_error', message: 'Private session is no longer available.' });
             return;
         }
         if (sharedDungeon.players[1] && sharedDungeon.players[1].id !== null) {
-            this.privatePairLobbies.delete(code);
             this._broadcastOpenGames();
             this._send(conn.ws, { type: 'join_error', message: 'Private session is already full.' });
             return;
@@ -246,7 +277,6 @@ class GameServer {
         sharedDungeon.startGame();
         this._sendInit(lobby.hostConn, sharedDungeon);
         this._sendInit(conn, sharedDungeon);
-        this.privatePairLobbies.delete(code);
         this._broadcastOpenGames();
         console.log(`[GameServer] private pair joined ${lobby.hostId} + ${playerId} code=${code}`);
     }
@@ -318,6 +348,15 @@ class GameServer {
         }
         
         return d;
+    }
+
+    _tickDungeon(dungeon) {
+        // Do not tick classic private pair dungeons if waiting for the second player
+        if (dungeon.matchMode === 'classic_private_pair' && (!dungeon.players[1] || dungeon.players[1].id === null)) {
+            dungeon.sounds = []; // Clear any queued sounds
+            return false;
+        }
+        return true;
     }
 
     _checkDungeonEmpty(dungeon) {
@@ -568,7 +607,11 @@ class GameServer {
         }
 
         // Tick all dungeons at the authoritative game rate.
-        for (const [, dungeon] of this.dungeons) dungeon.tick(inputsMap);
+        for (const [, dungeon] of this.dungeons) {
+            if (this._tickDungeon(dungeon)) {
+                dungeon.tick(inputsMap);
+            }
+        }
 
         // Broadcast snapshots at a stable lower rate than the authoritative
         // server tick. Clients render from a timed buffer to smooth jitter.
@@ -674,14 +717,14 @@ class GameServer {
     }
 
     _removePrivateLobbyByDungeonId(dungeonId) {
-        let changed = false;
         for (const [code, lobby] of this.privatePairLobbies.entries()) {
-            if (lobby?.dungeon?.id === dungeonId) {
+            if (lobby.dungeon && lobby.dungeon.id === dungeonId) {
+                if (lobby.timeoutId) clearTimeout(lobby.timeoutId);
                 this.privatePairLobbies.delete(code);
-                changed = true;
+                break;
             }
         }
-        if (changed) this._broadcastOpenGames();
+        this._broadcastOpenGames();
     }
 
     _sendOpenGames(conn) {

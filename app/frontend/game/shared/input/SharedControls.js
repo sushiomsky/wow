@@ -2,23 +2,23 @@ export const CONTROL_ACTIONS = ['up', 'down', 'left', 'right', 'fire'];
 
 const KEYBOARD_LAYOUTS = {
     arrows: {
-        label: 'Arrows + Enter',
+        label: 'Arrows + Left Shift',
         actions: {
             up: { kind: 'key', code: 38 },
             down: { kind: 'key', code: 40 },
             left: { kind: 'key', code: 37 },
             right: { kind: 'key', code: 39 },
-            fire: { kind: 'key', code: 13 },
+            fire: { kind: 'key', code: 16 },
         },
     },
     wasd: {
-        label: 'WASD + Left Shift',
+        label: 'WASD + Space',
         actions: {
             up: { kind: 'key', code: 87 },
             down: { kind: 'key', code: 83 },
             left: { kind: 'key', code: 65 },
             right: { kind: 'key', code: 68 },
-            fire: { kind: 'key', code: 16 },
+            fire: { kind: 'key', code: 32 },
         },
     },
     ijkl: {

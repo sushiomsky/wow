@@ -43,6 +43,36 @@ function subscribeToEngine() {
     engine.on('reset', () => {
         goToTitle();
     });
+
+    engine.on('roomCode', ({ roomCode }) => {
+        if (currentSetupMode === 'network_owner') {
+            const joinUrl = `${window.location.origin}/?room=${encodeURIComponent(roomCode)}`;
+            const input = document.getElementById('share-link-input');
+            if (input) input.value = joinUrl;
+            
+            const spinner = document.getElementById('network-spinner');
+            if (spinner) spinner.classList.add('hide');
+            
+            const linkSec = document.getElementById('network-link-section');
+            if (linkSec) linkSec.classList.remove('hide');
+            
+            const status = document.getElementById('network-status');
+            if (status) status.textContent = 'Waiting for player 2 to join...';
+        }
+    });
+
+    engine.on('playing', () => {
+        setAmbientUiVisible(false);
+        showOverlay(false);
+        _state = 'playing';
+    });
+
+    engine.on('error', (err) => {
+        const status = document.getElementById('network-status');
+        if (status) status.textContent = `Error: ${err.message}`;
+        const spinner = document.getElementById('network-spinner');
+        if (spinner) spinner.classList.add('hide');
+    });
     
     console.log('[play.js] Engine subscriptions registered');
 }
@@ -73,6 +103,247 @@ let _mpCSSLinks = [];
 let _mpGameOverHandler = null;
 let _handlers = {};
 const ATTRACT_INIT_TIMEOUT_MS = 5000;
+
+// Setup Panel Variables & Control Customization
+let currentSetupMode = null; // 'sp' | 'local2p' | 'network_owner' | 'network_joiner'
+let currentRebindPlayer = null;
+let currentRebindIndex = 0;
+let rebindingKeys = {};
+const rebindActions = ['up', 'down', 'left', 'right', 'fire'];
+
+function getKeyCodeLabel(code) {
+    const map = {
+        8: 'Backspace',
+        9: 'Tab',
+        13: 'Enter',
+        16: 'L-Shift',
+        17: 'Ctrl',
+        18: 'Alt',
+        20: 'Caps',
+        27: 'Esc',
+        32: 'Space',
+        37: 'Left',
+        38: 'Up',
+        39: 'Right',
+        40: 'Down',
+    };
+    if (map[code]) return map[code];
+    if (code >= 48 && code <= 57) return String.fromCharCode(code);
+    if (code >= 65 && code <= 90) return String.fromCharCode(code).toUpperCase();
+    return `Key ${code}`;
+}
+
+function showRebindModal(player) {
+    currentRebindPlayer = player;
+    currentRebindIndex = 0;
+    rebindingKeys = {};
+    
+    const subtitle = document.getElementById('modal-subtitle');
+    if (subtitle) subtitle.textContent = player === 1 ? 'P1 (Yellow Warrior)' : 'P2 (Blue Warrior)';
+    
+    const modal = document.getElementById('controls-modal');
+    if (modal) modal.classList.remove('hide');
+    
+    // Clear display rows
+    rebindActions.forEach(act => {
+        const row = document.getElementById(`modal-row-${act}`);
+        if (row) {
+            row.classList.remove('active', 'done');
+            const span = row.querySelector('span');
+            if (span) span.textContent = '-';
+        }
+    });
+    
+    // Set first action active
+    setActiveRebindAction(rebindActions[0]);
+    
+    // Bind keydown event
+    document.addEventListener('keydown', handleRebindKeyDown);
+}
+
+function setActiveRebindAction(act) {
+    const prompt = document.getElementById('modal-prompt');
+    if (prompt) prompt.textContent = `PRESS KEY FOR ${act.toUpperCase()}`;
+    const row = document.getElementById(`modal-row-${act}`);
+    if (row) row.classList.add('active');
+}
+
+function handleRebindKeyDown(e) {
+    e.preventDefault();
+    const keyCode = e.keyCode || e.which;
+    
+    if (keyCode === 27) { // Escape key
+        closeRebindModal();
+        return;
+    }
+    
+    const act = rebindActions[currentRebindIndex];
+    rebindingKeys[act] = keyCode;
+    
+    // Mark row as done
+    const row = document.getElementById(`modal-row-${act}`);
+    if (row) {
+        row.classList.remove('active');
+        row.classList.add('done');
+        const span = row.querySelector('span');
+        if (span) span.textContent = getKeyCodeLabel(keyCode);
+    }
+    
+    currentRebindIndex++;
+    if (currentRebindIndex < rebindActions.length) {
+        setActiveRebindAction(rebindActions[currentRebindIndex]);
+    } else {
+        // Complete!
+        saveReboundKeys(currentRebindPlayer, rebindingKeys);
+        closeRebindModal();
+    }
+}
+
+function closeRebindModal() {
+    const modal = document.getElementById('controls-modal');
+    if (modal) modal.classList.add('hide');
+    document.removeEventListener('keydown', handleRebindKeyDown);
+}
+
+function saveReboundKeys(player, keys) {
+    const binding = {
+        device: 'keyboard',
+        gamepadIndex: 0,
+        layout: 'custom',
+        actions: {
+            up: { kind: 'key', code: keys.up },
+            down: { kind: 'key', code: keys.down },
+            left: { kind: 'key', code: keys.left },
+            right: { kind: 'key', code: keys.right },
+            fire: { kind: 'key', code: keys.fire }
+        }
+    };
+    
+    const storageKey = player === 1 ? 'yellowControlBinding' : 'blueControlBinding';
+    localStorage.setItem(storageKey, JSON.stringify(binding));
+    
+    if (player === 1) {
+        localStorage.setItem('multiplayerControlBinding', JSON.stringify(binding));
+        localStorage.setItem('multiplayerControlsConfirmed.v1', 'true');
+    }
+    
+    syncControlsDisplay();
+}
+
+function useDefaultKeys(player) {
+    let binding;
+    if (player === 1) {
+        binding = {
+            device: 'keyboard',
+            gamepadIndex: 0,
+            layout: 'arrows',
+            actions: {
+                up: { kind: 'key', code: 38 },
+                down: { kind: 'key', code: 40 },
+                left: { kind: 'key', code: 37 },
+                right: { kind: 'key', code: 39 },
+                fire: { kind: 'key', code: 16 } // Left Shift
+            }
+        };
+        localStorage.setItem('yellowControlBinding', JSON.stringify(binding));
+        localStorage.setItem('multiplayerControlBinding', JSON.stringify(binding));
+        localStorage.setItem('multiplayerControlsConfirmed.v1', 'true');
+    } else {
+        binding = {
+            device: 'keyboard',
+            gamepadIndex: 0,
+            layout: 'wasd',
+            actions: {
+                up: { kind: 'key', code: 87 },
+                down: { kind: 'key', code: 83 },
+                left: { kind: 'key', code: 65 },
+                right: { kind: 'key', code: 68 },
+                fire: { kind: 'key', code: 32 } // Space
+            }
+        };
+        localStorage.setItem('blueControlBinding', JSON.stringify(binding));
+    }
+    syncControlsDisplay();
+}
+
+function syncControlsDisplay() {
+    // Player 1 Display
+    const p1Raw = localStorage.getItem('yellowControlBinding');
+    let p1Binding;
+    if (p1Raw) {
+        try { p1Binding = JSON.parse(p1Raw); } catch(e) {}
+    }
+    if (!p1Binding) {
+        p1Binding = {
+            device: 'keyboard',
+            gamepadIndex: 0,
+            layout: 'arrows',
+            actions: {
+                up: { kind: 'key', code: 38 },
+                down: { kind: 'key', code: 40 },
+                left: { kind: 'key', code: 37 },
+                right: { kind: 'key', code: 39 },
+                fire: { kind: 'key', code: 16 }
+            }
+        };
+    }
+    const p1Up = document.getElementById('p1-key-up');
+    const p1Down = document.getElementById('p1-key-down');
+    const p1Left = document.getElementById('p1-key-left');
+    const p1Right = document.getElementById('p1-key-right');
+    const p1Fire = document.getElementById('p1-key-fire');
+    if (p1Up) p1Up.textContent = getKeyCodeLabel(p1Binding.actions.up.code);
+    if (p1Down) p1Down.textContent = getKeyCodeLabel(p1Binding.actions.down.code);
+    if (p1Left) p1Left.textContent = getKeyCodeLabel(p1Binding.actions.left.code);
+    if (p1Right) p1Right.textContent = getKeyCodeLabel(p1Binding.actions.right.code);
+    if (p1Fire) p1Fire.textContent = getKeyCodeLabel(p1Binding.actions.fire.code);
+
+    // Player 2 Display
+    const p2Raw = localStorage.getItem('blueControlBinding');
+    let p2Binding;
+    if (p2Raw) {
+        try { p2Binding = JSON.parse(p2Raw); } catch(e) {}
+    }
+    if (!p2Binding) {
+        p2Binding = {
+            device: 'keyboard',
+            gamepadIndex: 0,
+            layout: 'wasd',
+            actions: {
+                up: { kind: 'key', code: 87 },
+                down: { kind: 'key', code: 83 },
+                left: { kind: 'key', code: 65 },
+                right: { kind: 'key', code: 68 },
+                fire: { kind: 'key', code: 32 }
+            }
+        };
+    }
+    const p2Up = document.getElementById('p2-key-up');
+    const p2Down = document.getElementById('p2-key-down');
+    const p2Left = document.getElementById('p2-key-left');
+    const p2Right = document.getElementById('p2-key-right');
+    const p2Fire = document.getElementById('p2-key-fire');
+    if (p2Up) p2Up.textContent = getKeyCodeLabel(p2Binding.actions.up.code);
+    if (p2Down) p2Down.textContent = getKeyCodeLabel(p2Binding.actions.down.code);
+    if (p2Left) p2Left.textContent = getKeyCodeLabel(p2Binding.actions.left.code);
+    if (p2Right) p2Right.textContent = getKeyCodeLabel(p2Binding.actions.right.code);
+    if (p2Fire) p2Fire.textContent = getKeyCodeLabel(p2Binding.actions.fire.code);
+}
+
+function showPanel(panelName) {
+    const modes = document.getElementById('panel-modes');
+    const setup = document.getElementById('panel-setup');
+    const insertText = document.getElementById('play-insert-text');
+    if (panelName === 'modes') {
+        if (modes) modes.classList.remove('hide');
+        if (setup) setup.classList.add('hide');
+        if (insertText) insertText.textContent = 'CHOOSE YOUR MODE';
+    } else if (panelName === 'setup') {
+        if (modes) modes.classList.add('hide');
+        if (setup) setup.classList.remove('hide');
+        if (insertText) insertText.textContent = 'SETUP CONFIGURATION';
+    }
+}
 
 const overlay = document.getElementById('play-overlay');
 const gameRoot = document.getElementById('game-root');
@@ -453,7 +724,8 @@ async function startMP(roomCode, options = {}) {
         }
 
         const mod = await loadMP();
-        const mpApp = mod.initMultiplayer();
+        const appOptions = window.engine ? window.engine.options : { palette: 'default', visualFilter: 'none' };
+        const mpApp = mod.initMultiplayer(appOptions);
 
         // Notify engine controller
         if (window.engine) {
@@ -535,29 +807,138 @@ function _teardownForEngine() {
 }
 
 // ─── Bind UI ──────────────────────────────────────────────────────
-// UI buttons now trigger engine controller methods (can also use engine directly)
-document.getElementById('btn-play')?.addEventListener('click', async () => {
-    if (window.engine) {
-        await window.engine.startNewGame(1);
-        return;
+
+// Mode selection triggers Setup panel
+document.getElementById('btn-play')?.addEventListener('click', () => {
+    currentSetupMode = 'sp';
+    const modeTitle = document.getElementById('setup-mode-title');
+    if (modeTitle) modeTitle.textContent = 'SINGLE PLAYER SETUP';
+    
+    const cardP1 = document.getElementById('card-p1');
+    const cardP2 = document.getElementById('card-p2');
+    const cardNet = document.getElementById('card-network');
+    const startBtn = document.getElementById('btn-setup-start');
+    if (cardP1) cardP1.classList.remove('hide');
+    if (cardP2) cardP2.classList.add('hide');
+    if (cardNet) cardNet.classList.add('hide');
+    if (startBtn) {
+        startBtn.classList.remove('hide');
+        startBtn.textContent = 'START GAME';
     }
-    await startGame(1);
+    
+    showPanel('setup');
+    syncControlsDisplay();
 });
 
-document.getElementById('btn-2p')?.addEventListener('click', async () => {
-    if (window.engine) {
-        await window.engine.startNewGame(2);
-        return;
+document.getElementById('btn-2p')?.addEventListener('click', () => {
+    currentSetupMode = 'local2p';
+    const modeTitle = document.getElementById('setup-mode-title');
+    if (modeTitle) modeTitle.textContent = '2 PLAYER LOCAL SETUP';
+    
+    const cardP1 = document.getElementById('card-p1');
+    const cardP2 = document.getElementById('card-p2');
+    const cardNet = document.getElementById('card-network');
+    const startBtn = document.getElementById('btn-setup-start');
+    if (cardP1) cardP1.classList.remove('hide');
+    if (cardP2) cardP2.classList.remove('hide');
+    if (cardNet) cardNet.classList.add('hide');
+    if (startBtn) {
+        startBtn.classList.remove('hide');
+        startBtn.textContent = 'START GAME';
     }
-    await startGame(2);
+    
+    showPanel('setup');
+    syncControlsDisplay();
 });
 
-document.getElementById('btn-multi')?.addEventListener('click', async () => {
+document.getElementById('btn-multi')?.addEventListener('click', () => {
+    currentSetupMode = 'network_owner';
+    const modeTitle = document.getElementById('setup-mode-title');
+    if (modeTitle) modeTitle.textContent = '2 PLAYER NETWORK SETUP';
+    
+    const cardP1 = document.getElementById('card-p1');
+    const cardP2 = document.getElementById('card-p2');
+    const cardNet = document.getElementById('card-network');
+    const startBtn = document.getElementById('btn-setup-start');
+    const spinner = document.getElementById('network-spinner');
+    const linkSec = document.getElementById('network-link-section');
+    const netStatus = document.getElementById('network-status');
+    
+    if (cardP1) cardP1.classList.remove('hide');
+    if (cardP2) cardP2.classList.add('hide');
+    if (cardNet) cardNet.classList.remove('hide');
+    if (spinner) spinner.classList.remove('hide');
+    if (linkSec) linkSec.classList.add('hide');
+    if (netStatus) netStatus.textContent = 'Creating room...';
+    if (startBtn) startBtn.classList.add('hide');
+    
+    showPanel('setup');
+    syncControlsDisplay();
+    
     if (window.engine) {
-        await window.engine.createRoom();
-        return;
+        void window.engine.createRoom();
+    } else {
+        void startMP(null, { autoConnect: 'create' });
     }
-    await startMP(null, { autoConnect: 'create' });
+});
+
+// Control setup action buttons (defaults / customize)
+document.getElementById('btn-p1-default')?.addEventListener('click', () => useDefaultKeys(1));
+document.getElementById('btn-p1-custom')?.addEventListener('click', () => showRebindModal(1));
+document.getElementById('btn-p2-default')?.addEventListener('click', () => useDefaultKeys(2));
+document.getElementById('btn-p2-custom')?.addEventListener('click', () => showRebindModal(2));
+
+// Copy link button
+document.getElementById('btn-copy-link')?.addEventListener('click', async () => {
+    const input = document.getElementById('share-link-input');
+    if (!input || !input.value) return;
+    try {
+        await navigator.clipboard.writeText(input.value);
+        const btn = document.getElementById('btn-copy-link');
+        if (btn) {
+            btn.textContent = 'COPIED!';
+            setTimeout(() => { btn.textContent = 'COPY'; }, 2000);
+        }
+    } catch (e) {
+        // Fallback
+    }
+});
+
+// Modal cancel
+document.getElementById('btn-modal-cancel')?.addEventListener('click', () => closeRebindModal());
+
+// Start Action
+document.getElementById('btn-setup-start')?.addEventListener('click', async () => {
+    if (currentSetupMode === 'sp') {
+        if (window.engine) {
+            await window.engine.startNewGame(1);
+        } else {
+            await startGame(1);
+        }
+    } else if (currentSetupMode === 'local2p') {
+        if (window.engine) {
+            await window.engine.startNewGame(2);
+        } else {
+            await startGame(2);
+        }
+    } else if (currentSetupMode === 'network_joiner') {
+        if (window.engine) {
+            await window.engine.joinRoom(_roomCode);
+        } else {
+            await startMP(_roomCode);
+        }
+    }
+});
+
+// Cancel Setup Panel Action
+document.getElementById('btn-setup-cancel')?.addEventListener('click', async () => {
+    if (window.location.search) {
+        window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (window.engine) {
+        await window.engine.reset();
+    }
+    showPanel('modes');
 });
 
 // Battle Royale mode buttons
@@ -568,31 +949,25 @@ document.getElementById('btn-br-endless')?.addEventListener('click', () => {
 // Keyboard shortcuts (global)
 document.addEventListener('keydown', (e) => {
     if (_state === 'title') {
+        // Do not process shortcuts if controls rebind modal is open
+        const modal = document.getElementById('controls-modal');
+        if (modal && !modal.classList.contains('hide')) {
+            return;
+        }
+        
         switch (e.code) {
             case 'Space': case 'Enter': case 'Digit1':
                 e.preventDefault();
-                if (window.engine) {
-                    void window.engine.startNewGame(1);
-                } else {
-                    void startGame(1);
-                }
+                document.getElementById('btn-play')?.click();
                 return;
             case 'Digit2':
                 e.preventDefault();
-                if (window.engine) {
-                    void window.engine.startNewGame(2);
-                } else {
-                    void startGame(2);
-                }
+                document.getElementById('btn-2p')?.click();
                 return;
         }
         if (e.key === 'm' || e.key === 'M') {
             e.preventDefault();
-            if (window.engine) {
-                void window.engine.createRoom();
-            } else {
-                void startMP(null, { autoConnect: 'create' });
-            }
+            document.getElementById('btn-multi')?.click();
             return;
         }
         if (e.key === 'b' || e.key === 'B') {
@@ -602,11 +977,7 @@ document.addEventListener('keydown', (e) => {
         }
         if (e.key === 'p' || e.key === 'P') {
             e.preventDefault();
-            if (window.engine) {
-                void window.engine.createRoom();
-            } else {
-                void startMP(null, { autoConnect: 'create' });
-            }
+            document.getElementById('btn-multi')?.click();
             return;
         }
     }
@@ -717,7 +1088,34 @@ if (_autoplay) {
         }
     })();
 } else if (_roomCode) {
-    startMP(_roomCode);
+    // Show the Joiner setup first instead of auto-joining directly.
+    // This allows the user to check/rebind their controls.
+    setTimeout(() => {
+        currentSetupMode = 'network_joiner';
+        const title = document.getElementById('setup-mode-title');
+        if (title) title.textContent = 'JOIN 2-PLAYER GAME';
+        
+        const cardP1 = document.getElementById('card-p1');
+        const cardP2 = document.getElementById('card-p2');
+        const cardNet = document.getElementById('card-network');
+        const spinner = document.getElementById('network-spinner');
+        const linkSec = document.getElementById('network-link-section');
+        const status = document.getElementById('network-status');
+        const startBtn = document.getElementById('btn-setup-start');
+        
+        if (cardP1) cardP1.classList.add('hide');
+        if (cardP2) cardP2.classList.remove('hide');
+        if (cardNet) cardNet.classList.remove('hide');
+        if (spinner) spinner.classList.add('hide');
+        if (linkSec) linkSec.classList.add('hide');
+        if (status) status.textContent = `Ready to join room: ${_roomCode}`;
+        if (startBtn) {
+            startBtn.classList.remove('hide');
+            startBtn.textContent = 'JOIN & PLAY';
+        }
+        showPanel('setup');
+        syncControlsDisplay();
+    }, 100);
 } else {
     const challengeScore = parseInt(_params.get('challenge'));
     if (challengeScore && !isNaN(challengeScore)) {

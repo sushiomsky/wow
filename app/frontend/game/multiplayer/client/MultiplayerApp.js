@@ -65,7 +65,7 @@ class MultiplayerApp {
         writeControlBinding(MULTIPLAYER_CONTROL_STORAGE_KEY, this.options.controlBinding);
         this.options.controlDevice = getDeviceValue(this.options.controlBinding);
 
-        this._bootstrap();
+        this._readyPromise = this._bootstrap();
     }
 
     async _bootstrap() {
@@ -156,7 +156,18 @@ class MultiplayerApp {
             },
         });
         this.launchController.bindButtons();
-        this.launchController.applyAutoJoinFromUrl();
+        // Only auto-join from URL when not under platform control.
+        // When window.__SWOW_PLATFORM__ is set, play.js calls _connect() directly.
+        if (!window.__SWOW_PLATFORM__) {
+            this.launchController.applyAutoJoinFromUrl();
+        } else {
+            // Still handle direct ?room= joins (player 2 joining via shared link)
+            const params = new URLSearchParams(location.search);
+            const roomCode = params.get('room') || params.get('pair');
+            if (roomCode) {
+                this.launchController.applyAutoJoinFromUrl();
+            }
+        }
     }
 
     _initMessageController() {
@@ -179,7 +190,12 @@ class MultiplayerApp {
     }
 
     _connect(joinType, payload = null) {
-        this.sessionController?.connect(joinType, payload);
+        // If bootstrap is still in progress, wait for it first
+        if (this._readyPromise) {
+            this._readyPromise.then(() => this.sessionController?.connect(joinType, payload));
+        } else {
+            this.sessionController?.connect(joinType, payload);
+        }
     }
 
     _nextInputSeq() {

@@ -5,6 +5,9 @@ const require = createRequire(import.meta.url);
 const { GameServer } = require('../../frontend/game/multiplayer/server/GameServer');
 const { DungeonInstance, STATE } = require('../../frontend/game/multiplayer/server/DungeonInstance');
 const { ServerPlayer } = require('../../frontend/game/multiplayer/server/ServerPlayer');
+const { ServerBullet } = require('../../frontend/game/multiplayer/server/ServerBullet');
+const { ServerMonster } = require('../../frontend/game/multiplayer/server/ServerMonster');
+const { DungeonGraph } = require('../../frontend/game/multiplayer/server/DungeonGraph');
 
 function makeServer() {
   const server = Object.create(GameServer.prototype);
@@ -27,6 +30,102 @@ function addDungeon(server) {
 
 function makeConn(player = null, dungeonId = null) {
   return { ws: { readyState: 1, send() {} }, player, dungeonId, inputs: {} };
+}
+
+
+function testEndlessPlayersGetSeparateConnectedHomes() {
+  const server = makeServer();
+  server.battleRoyaleMode = true;
+  server.dungeonGraph = new DungeonGraph();
+  const connA = makeConn();
+  const connB = makeConn();
+  server.connections.set('a', connA);
+  server.connections.set('b', connB);
+
+  server.endlessBRQueue = { activePlayers: new Map(), addPlayer: () => {}, removePlayer: () => {} };
+  const { EndlessBRQueue } = require('../../frontend/game/multiplayer/server/EndlessBRQueue');
+  server.endlessBRQueue = new EndlessBRQueue(server);
+  server.endlessBRQueue.addPlayer('a', connA);
+  server.endlessBRQueue.addPlayer('b', connB);
+
+  assert.notEqual(connA.dungeonId, connB.dungeonId, 'endless players must receive separate home dungeons');
+  assert.equal(connA.player.homeDungeonId, connA.dungeonId);
+  assert.equal(connB.player.homeDungeonId, connB.dungeonId);
+  const dungeonA = server.dungeons.get(connA.dungeonId);
+  const dungeonB = server.dungeons.get(connB.dungeonId);
+  assert.ok(dungeonA.leftTunnelTarget || dungeonA.rightTunnelTarget || dungeonB.leftTunnelTarget || dungeonB.rightTunnelTarget, 'homes should be tunnel-connected');
+}
+
+function testMonstersRemainInSourceDungeonOnPlayerTravel() {
+  const server = makeServer();
+  const source = addDungeon(server);
+  const target = addDungeon(server);
+  const monster = new ServerMonster('burwor', null, source);
+  source.monsters.push(monster);
+  const player = new ServerPlayer(0, source, 'p1', source.id);
+  player.homeSlot = 0;
+  player.status = 'alive';
+  source.addPlayer(player);
+  const conn = makeConn(player, source.id);
+  server.connections.set('p1', conn);
+
+  assert.equal(server.transferPlayerToDungeon(player, source, target.id, 'left'), true);
+  assert.equal(source.monsters.includes(monster), true, 'monster stays in original dungeon');
+  assert.equal(target.monsters.includes(monster), false, 'monster is not copied to target dungeon');
+}
+
+function testPlayerBulletPvPDeductsLifeServerSide() {
+  const server = makeServer();
+  const dungeon = addDungeon(server);
+  const shooter = new ServerPlayer(0, dungeon, 'shooter', dungeon.id);
+  const target = new ServerPlayer(1, dungeon, 'target', dungeon.id);
+  shooter.status = 'alive';
+  target.status = 'alive';
+  target.lives = 3;
+  dungeon.addPlayer(shooter);
+  dungeon.addPlayer(target);
+  shooter.bullet = new ServerBullet(shooter, target.x, target.y, 'right', dungeon);
+
+  shooter.bullet.scanRoutine();
+  assert.equal(target.status, 'dead', 'PvP bullet marks target dead');
+  assert.equal(shooter.score, 1000, 'PvP shooter receives worrior score');
+  target.frameCounters.dead = Math.round(dungeon.scanFPS * 2) + 1;
+  target.scanRoutine({});
+  assert.equal(target.lives, 2, 'dead player loses one life server-side');
+}
+
+function testForeignDeathRespawnsHomeAndClearsAwaySlot() {
+  const server = makeServer();
+  const home = addDungeon(server);
+  const away = addDungeon(server);
+  const visitor = new ServerPlayer(1, away, 'visitor', home.id);
+  visitor.homeSlot = 0;
+  visitor.status = 'dead';
+  visitor.lives = 2;
+  away.addPlayer(visitor);
+  const conn = makeConn(visitor, away.id);
+  server.connections.set('visitor', conn);
+
+  away.respawnPlayer(visitor);
+  assert.equal(conn.dungeonId, home.id);
+  assert.equal(home.players.some((p) => p.id === 'visitor'), true, 'visitor appears in home dungeon');
+  assert.equal(away.players.every((p) => p.id !== 'visitor'), true, 'away dungeon slot is cleared');
+  assert.equal(conn.player.status, 'wait');
+}
+
+function testClearedDungeonContinuesToNextDungeon() {
+  const server = makeServer();
+  const dungeon = addDungeon(server);
+  const player = new ServerPlayer(0, dungeon, 'p1', dungeon.id);
+  player.status = 'alive';
+  dungeon.addPlayer(player);
+  dungeon.level = 1;
+  dungeon.scene = 'dungeon';
+  dungeon.endDungeon();
+  assert.equal(dungeon.scene, 'getReady', 'clearing should continue via getReady instead of ending match');
+  dungeon.nextDungeon();
+  assert.equal(dungeon.scene, 'dungeon');
+  assert.equal(dungeon.monsters.length, 6, 'next dungeon starts a fresh monster roster');
 }
 
 function testTransferPreservesHomeDungeon() {
@@ -62,6 +161,43 @@ function testCollapseBlocksEntryButAllowsExit() {
   assert.equal(server.isDungeonEntryBlocked(safe.id, collapsing.id), false, 'players may leave collapsing dungeon outward');
 }
 
+
+function testTransferEvictsBotInsteadOfEndingMatch() {
+  const server = makeServer();
+  const source = addDungeon(server);
+  const target = addDungeon(server);
+  source.matchMode = 'endless_br';
+  target.matchMode = 'endless_br';
+
+  const traveler = new ServerPlayer(0, source, 'traveler', source.id);
+  traveler.homeSlot = 0;
+  traveler.status = 'alive';
+  traveler.lives = 3;
+  source.addPlayer(traveler);
+  const conn = makeConn(traveler, source.id);
+  server.connections.set('traveler', conn);
+
+  const targetOwner = new ServerPlayer(0, target, 'owner', target.id);
+  targetOwner.homeSlot = 0;
+  targetOwner.status = 'alive';
+  target.addPlayer(targetOwner);
+  server.connections.set('owner', makeConn(targetOwner, target.id));
+
+  const bot = server.spawnBot(target.id, 1);
+  assert.ok(bot, 'target starts with filler bot');
+  assert.equal(target.players[1].isBot, true);
+
+  const ok = server.transferPlayerToDungeon(traveler, source, target.id, 'left');
+  assert.equal(ok, true, 'traveler should enter target by evicting filler bot');
+  assert.equal(conn.dungeonId, target.id);
+  assert.equal(conn.player.id, 'traveler');
+  assert.equal(conn.player.homeDungeonId, source.id, 'traveler keeps original home dungeon');
+  assert.equal(conn.player.status, 'alive', 'traveler remains alive after tunnel transfer');
+  assert.equal(target.players[1].id, 'traveler', 'traveler occupies released bot slot');
+  assert.equal(server.bots.has(bot.id), false, 'evicted bot is removed from bot registry');
+  assert.equal(server.dungeons.has(source.id), true, 'source home dungeon is not destroyed by travel');
+}
+
 function testCollapseTimeoutPenaltyRespawnsHome() {
   const server = makeServer();
   const collapsing = addDungeon(server);
@@ -95,6 +231,57 @@ function testCollapseDefaultsToSixtySeconds() {
   assert.ok(remainingMs >= 59000 && remainingMs <= 61000, `expected ~60000ms collapse countdown, got ${remainingMs}`);
 }
 
+function testOwnerFinalDeathTriggersCollapseDuringScan() {
+  const server = makeServer();
+  const dungeon = addDungeon(server);
+  const owner = new ServerPlayer(0, dungeon, 'owner', dungeon.id);
+  owner.status = 'dead';
+  owner.lives = 1;
+  owner.frameCounters.dead = Math.round(dungeon.scanFPS * 2) + 1;
+  const bot = new ServerPlayer(1, dungeon, 'bot-1', dungeon.id);
+  bot.isBot = true;
+  bot.status = 'alive';
+  dungeon.addPlayer(owner);
+  dungeon.addPlayer(bot);
+
+  owner.scanRoutine({});
+  assert.equal(owner.status, 'out', 'fatal death eliminates the owner');
+  assert.equal(dungeon.lifecycleState, STATE.COLLAPSING, 'owner final death immediately collapses home dungeon');
+  assert.ok(dungeon.collapseUntil > Date.now(), 'collapse has an active countdown');
+}
+
+function testCollapseStateVisibleInSnapshot() {
+  const server = makeServer();
+  const dungeon = addDungeon(server);
+  const owner = new ServerPlayer(0, dungeon, 'owner', dungeon.id);
+  owner.status = 'out';
+  dungeon.addPlayer(owner);
+  dungeon._checkLifecycle();
+
+  const snapshot = dungeon.serialize();
+  assert.equal(snapshot.lifecycleState, STATE.COLLAPSING);
+  assert.equal(snapshot.collapseCountdownMs, 60000);
+  assert.ok(snapshot.collapseUntil > Date.now(), 'snapshot includes collapse end time');
+  assert.ok(snapshot.collapseRemainingSeconds >= 59 && snapshot.collapseRemainingSeconds <= 60, 'snapshot includes client-displayable remaining seconds');
+}
+
+function testDestroyedDungeonWaitsForMonsterCleanup() {
+  const server = makeServer();
+  const dungeon = addDungeon(server);
+  const monster = new ServerMonster('burwor', null, dungeon);
+  monster.status = 'alive';
+  dungeon.monsters.push(monster);
+  dungeon.lifecycleState = STATE.EMPTY;
+
+  dungeon.tick({});
+  assert.equal(server.dungeons.has(dungeon.id), true, 'empty dungeon with live monsters is not destroyed yet');
+  assert.equal(dungeon.lifecycleState, STATE.EMPTY);
+
+  monster.status = 'died';
+  dungeon.tick({});
+  assert.equal(server.dungeons.has(dungeon.id), false, 'dungeon is destroyed after monster cleanup');
+}
+
 function testBotPartnerDoesNotBlockOwnerCollapse() {
   const server = makeServer();
   const dungeon = addDungeon(server);
@@ -123,11 +310,20 @@ function testDestroyedDungeonClearsStaleTunnelTargets() {
 }
 
 const tests = [
+  testEndlessPlayersGetSeparateConnectedHomes,
   testTransferPreservesHomeDungeon,
   testCollapseBlocksEntryButAllowsExit,
+  testTransferEvictsBotInsteadOfEndingMatch,
+  testMonstersRemainInSourceDungeonOnPlayerTravel,
+  testPlayerBulletPvPDeductsLifeServerSide,
+  testForeignDeathRespawnsHomeAndClearsAwaySlot,
+  testClearedDungeonContinuesToNextDungeon,
   testCollapseTimeoutPenaltyRespawnsHome,
   testCollapseDefaultsToSixtySeconds,
+  testOwnerFinalDeathTriggersCollapseDuringScan,
+  testCollapseStateVisibleInSnapshot,
   testBotPartnerDoesNotBlockOwnerCollapse,
+  testDestroyedDungeonWaitsForMonsterCleanup,
   testDestroyedDungeonClearsStaleTunnelTargets,
 ];
 

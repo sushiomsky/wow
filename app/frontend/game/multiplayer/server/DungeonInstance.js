@@ -598,7 +598,8 @@ class DungeonInstance {
             player._homeSlot = undefined;
             player.goToStartPosition();
         } else {
-            // Transfer back to home dungeon
+            // Transfer back to home dungeon and free the visitor slot here.
+            this.removePlayer(player);
             player.status = 'out';
             this.gameServer.respawnPlayerInHome(player);
         }
@@ -652,6 +653,9 @@ class DungeonInstance {
             animateSkip: { ...this.animateSkip },
             collapseUntil: this.collapseUntil,
             collapseCountdownMs: COLLAPSE_COUNTDOWN_MS,
+            collapseRemainingSeconds: this.collapseUntil === null
+                ? null
+                : Math.max(0, Math.ceil((this.collapseUntil - Date.now()) / 1000)),
             leftTunnelTarget: this.leftTunnelTarget,
             rightTunnelTarget: this.rightTunnelTarget,
             players: this.players.map(p => ({

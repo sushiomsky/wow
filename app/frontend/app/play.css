@@ -140,7 +140,8 @@ html, body {
     animation: play-glow 2s ease-in-out infinite;
     text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
 }
-.play-btn-primary:hover {
+.play-btn-primary:hover,
+.play-btn-primary:active {
     background: #e20;
     border-color: #e20;
     transform: scale(1.04);
@@ -171,13 +172,16 @@ html, body {
     transition: all 0.15s;
     outline: none;
 }
-.play-btn-sm:hover {
+.play-btn-sm:hover,
+.play-btn-sm:active {
     transform: scale(1.04);
 }
 .play-btn-sm.green { background: #070; border-color: #070; }
-.play-btn-sm.green:hover { background: #090; border-color: #090; box-shadow: 0 0 12px rgba(0,153,0,0.5); }
+.play-btn-sm.green:hover,
+.play-btn-sm.green:active { background: #090; border-color: #090; box-shadow: 0 0 12px rgba(0,153,0,0.5); }
 .play-btn-sm.blue { background: #15c; border-color: #15c; }
-.play-btn-sm.blue:hover { background: #27e; border-color: #27e; box-shadow: 0 0 12px rgba(34,119,238,0.5); }
+.play-btn-sm.blue:hover,
+.play-btn-sm.blue:active { background: #27e; border-color: #27e; box-shadow: 0 0 12px rgba(34,119,238,0.5); }
 
 /* ─── Hint text ──────────────────────────────────────────────────── */
 .play-hint {
@@ -576,32 +580,50 @@ html, body {
     #play-overlay {
         justify-content: flex-start;
         padding-top: 18px;
+        padding-left: 10px;
+        padding-right: 10px;
     }
 
     .play-title {
-        font-size: clamp(34px, 10vw, 52px);
+        font-size: clamp(30px, 8vw, 42px);
     }
 
     .play-insert {
         margin-bottom: 14px;
+        font-size: 11px;
     }
 
     .classic-section {
-        margin-bottom: 20px;
+        margin-bottom: 16px;
     }
 
     .network-section {
         grid-template-columns: 1fr;
-        gap: 10px;
+        gap: 8px;
+    }
+
+    .play-btn {
+        width: 100%;
+        font-size: clamp(16px, 4vw, 22px);
+        padding: 12px 10px;
+    }
+
+    .play-btn-sm {
+        width: 100%;
+        font-size: 12px;
+        padding: 10px 12px;
     }
 
     .play-btn-private,
     .play-btn-br {
-        min-height: 68px;
+        min-height: 60px;
+        padding: 10px 14px;
+        font-size: 14px;
     }
 
     .play-hint {
         margin-top: 4px;
+        font-size: 9px;
     }
 }
 

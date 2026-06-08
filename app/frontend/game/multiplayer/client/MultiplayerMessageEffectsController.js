@@ -380,9 +380,6 @@ export class MultiplayerMessageEffectsController {
         // Programmatically trigger the matching mode button
         const modeToBtn = {
             join_endless_br: 'btnSolo',
-            join_sitngo_br: 'btnSitNGo',
-            join_team_endless_br: 'btnTeamBr',
-            join_team_sitngo_br: 'btnTeamSitNGo',
         };
         const btnId = modeToBtn[joinType];
         const btn = document.getElementById(btnId);
@@ -394,6 +391,18 @@ export class MultiplayerMessageEffectsController {
 
     _backToMenu() {
         this._hideMatchResultsOverlay();
+        const url = new URL(window.location.href);
+        let changed = false;
+        for (const key of ['room', 'pair']) {
+            if (url.searchParams.has(key)) {
+                url.searchParams.delete(key);
+                changed = true;
+            }
+        }
+        if (changed) {
+            const next = `${url.pathname}${url.search}${url.hash}`;
+            window.history.replaceState({}, '', next);
+        }
         this.uiController.showOverlay();
         this.uiController.hideGameSurface();
         this.audio.stopAll();

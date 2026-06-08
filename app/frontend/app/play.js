@@ -57,7 +57,7 @@ function subscribeToEngine() {
             if (linkSec) linkSec.classList.remove('hide');
             
             const status = document.getElementById('network-status');
-            if (status) status.textContent = 'Waiting for player 2 to join...';
+            if (status) status.textContent = 'Warte auf Spieler 2...';
         }
     });
 
@@ -69,7 +69,7 @@ function subscribeToEngine() {
 
     engine.on('error', (err) => {
         const status = document.getElementById('network-status');
-        if (status) status.textContent = `Error: ${err.message}`;
+        if (status) status.textContent = `Fehler: ${err.message}`;
         const spinner = document.getElementById('network-spinner');
         if (spinner) spinner.classList.add('hide');
     });
@@ -139,7 +139,7 @@ function showRebindModal(player) {
     rebindingKeys = {};
     
     const subtitle = document.getElementById('modal-subtitle');
-    if (subtitle) subtitle.textContent = player === 1 ? 'P1 (Yellow Warrior)' : 'P2 (Blue Warrior)';
+    if (subtitle) subtitle.textContent = player === 1 ? 'P1 (Gelber Krieger)' : 'P2 (Blauer Krieger)';
     
     const modal = document.getElementById('controls-modal');
     if (modal) modal.classList.remove('hide');
@@ -163,7 +163,8 @@ function showRebindModal(player) {
 
 function setActiveRebindAction(act) {
     const prompt = document.getElementById('modal-prompt');
-    if (prompt) prompt.textContent = `PRESS KEY FOR ${act.toUpperCase()}`;
+    const localizedAct = { 'up': 'OBEN', 'down': 'UNTEN', 'left': 'LINKS', 'right': 'RECHTS', 'fire': 'FEUER' }[act];
+    if (prompt) prompt.textContent = `DRÜCKE EINE TASTE FÜR ${localizedAct}`;
     const row = document.getElementById(`modal-row-${act}`);
     if (row) row.classList.add('active');
 }
@@ -328,6 +329,28 @@ function syncControlsDisplay() {
     if (p2Left) p2Left.textContent = getKeyCodeLabel(p2Binding.actions.left.code);
     if (p2Right) p2Right.textContent = getKeyCodeLabel(p2Binding.actions.right.code);
     if (p2Fire) p2Fire.textContent = getKeyCodeLabel(p2Binding.actions.fire.code);
+
+    let hasOverlap = false;
+    if (currentSetupMode === 'local2p') {
+        const p1Codes = Object.values(p1Binding.actions).filter(a => a.kind === 'key').map(a => a.code);
+        const p2Codes = Object.values(p2Binding.actions).filter(a => a.kind === 'key').map(a => a.code);
+        for (const code of p1Codes) {
+            if (p2Codes.includes(code)) {
+                hasOverlap = true;
+                break;
+            }
+        }
+    }
+
+    const startBtn = document.getElementById('btn-setup-start');
+    const warning = document.getElementById('controls-warning');
+    if (hasOverlap) {
+        if (startBtn) startBtn.disabled = true;
+        if (warning) warning.classList.remove('hide');
+    } else {
+        if (startBtn) startBtn.disabled = false;
+        if (warning) warning.classList.add('hide');
+    }
 }
 
 function showPanel(panelName) {
@@ -371,31 +394,32 @@ function createSPDOM() {
             <div id="menuOverlay" class="hide"></div>
             <div id="menuToggler" class="hide"><span>Menu</span></div>
             <div id="menu">
-                <div class="l1 back nosubmenu">&lt; Close</div>
-                <div id="toggleFullscreen" class="l1 nosubmenu">Fullscreen</div>
-                <div class="l1">Visual filter<div id="visualFilterSelect" class="items closed">
+                <div class="l1 back nosubmenu">&lt; Schließen</div>
+                <div id="btnBackToMenu" class="l1 nosubmenu" onclick="window.location.href='/'">Hauptmenü</div>
+                <div id="toggleFullscreen" class="l1 nosubmenu">Vollbild</div>
+                <div class="l1">Visueller Filter<div id="visualFilterSelect" class="items closed">
                     <div data-value="none">none</div>
                     <div data-value="scanlines">Scan lines</div>
                     <div data-value="bwTv">black and white TV</div>
                     <div data-value="colorTv">color TV</div>
                     <div data-value="greenC64monitor">green C64 monitor</div>
                 </div></div>
-                <div class="l1">Sounds<div id="soundSelect" class="items closed">
-                    <div data-value="on">on</div>
-                    <div data-value="off">off</div>
+                <div class="l1">Ton<div id="soundSelect" class="items closed">
+                    <div data-value="on">an</div>
+                    <div data-value="off">aus</div>
                 </div></div>
-                <div id="ctrlYellow" class="l1">Yellow warrior control<div id="yellowControlSelect" class="items closed">
+                <div id="ctrlYellow" class="l1">Steuerung (Gelber Krieger)<div id="yellowControlSelect" class="items closed">
                     <div data-value="keyboard">keyboard</div>
                     <div data-value="gamepad0">gamepad #1</div>
                     <div data-value="gamepad1">gamepad #2</div>
                     <div id="yellowBindUp">UP: -</div>
                     <div id="yellowBindDown">DOWN: -</div>
                     <div id="yellowBindLeft">LEFT: -</div>
-                    <div id="yellowBindRight">RIGHT: -</div>
-                    <div id="yellowBindFire">FIRE: -</div>
+                    <div id="yellowBindRight">RECHTS: -</div>
+                    <div id="yellowBindFire">FEUER: -</div>
                 </div></div>
-                <div id="ctrlBlue" class="l1">Blue warrior control<div id="blueControlSelect" class="items closed">
-                    <div data-value="keyboard">keyboard</div>
+                <div id="ctrlBlue" class="l1">Steuerung (Blauer Krieger)<div id="blueControlSelect" class="items closed">
+                    <div data-value="keyboard">Tastatur</div>
                     <div data-value="gamepad0">gamepad #1</div>
                     <div data-value="gamepad1">gamepad #2</div>
                     <div id="blueBindUp">UP: -</div>
@@ -418,15 +442,16 @@ function createMPDOM() {
     root.innerHTML = `
         <div id="overlay">
             <h1>WIZARD OF WOR</h1>
-            <p>2-Player Private Room</p>
+            <p>Privater Raum (2 Spieler)</p>
             <div style="margin-top:20px;">
-                <button class="btn blue" id="btnPairCreate">&#128279; CREATE ROOM</button>
+                <button class="btn blue" id="btnPairCreate">&#128279; RAUM ERSTELLN</button>
                 <div style="margin-top: 12px;">
-                    <input id="pairCode" type="text" maxlength="12" placeholder="Room code"
+                    <input id="pairCode" type="text" maxlength="12" placeholder="Raumcode"
                         style="padding: 10px 12px; font-family: inherit; width: 240px; text-transform: uppercase; letter-spacing: 2px;">
-                    <button class="btn" id="btnPairJoin">JOIN ROOM</button>
+                    <button class="btn" id="btnPairJoin">BEITRETEN</button>
                 </div>
-                <button class="btn dark" id="btnBackToMenu" style="margin-top:12px; background:#333;">&#9664; BACK</button>
+                <button class="btn dark" id="btnBackToMenu" style="margin-top:12px; background:#333;">&#9664; HAUPTMENÜ</button>
+                <button class="btn green hide" id="btnRetry" type="button" style="margin-top:12px;">↻ RETRY LAST MODE</button>
             </div>
             <div id="status" role="status" aria-live="polite"></div>
         </div>
@@ -439,7 +464,7 @@ function createMPDOM() {
         <img src="/images/v4.0/noise.png" id="crtNoise" class="hide" alt="">
         <span style="font-family:WizardOfWor"></span>
         <div id="hud" class="hide"><span id="hud-dungeon"></span></div>
-        <div id="controls-hint">ARROWS + CTRL to move/shoot &nbsp;|&nbsp; ESC: back</div>
+        <div id="controls-hint">PFEILTASTEN + STRG/ENTER (Bewegen/Schießen) &nbsp;|&nbsp; ESC: Zurück</div>
     `;
     return root;
 }
@@ -451,6 +476,20 @@ function loadCSS(href) {
     link.href = href;
     document.head.appendChild(link);
     return link;
+}
+
+function clearJoinParams() {
+    const url = new URL(window.location.href);
+    let changed = false;
+    for (const key of ['room', 'pair']) {
+        if (url.searchParams.has(key)) {
+            url.searchParams.delete(key);
+            changed = true;
+        }
+    }
+    if (!changed) return;
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, '', next);
 }
 
 // ─── Game event handlers (persistent while SP is alive) ───────────
@@ -625,8 +664,8 @@ function buildMPPostMatchOverlay(detail) {
     html += `P1: ${p1Score} &nbsp;|&nbsp; P2: ${p2Score}`;
     html += '</div>';
     html += '<div class="go-actions" style="display:flex; flex-direction:column; gap:10px; align-items:center;">';
-    html += '<button class="go-replay-btn" id="go-mp-newroom">⚔ NEW ROOM</button>';
-    html += '<button class="go-share-btn" id="go-mp-back" style="padding:8px 20px;">◀ BACK TO MENU</button>';
+    html += '<button class="go-replay-btn" id="go-mp-newroom">⚔ NEUER RAUM</button>';
+    html += '<button class="go-share-btn" id="go-mp-back" style="padding:8px 20px;">◀ ZUM HAUPTMENÜ</button>';
     html += '</div>';
     html += '</div>';
     el.innerHTML = html;
@@ -666,6 +705,10 @@ async function startGame(numPlayers) {
     document.getElementById('play-gameover')?.remove();
     _engine.startNewGame(numPlayers);
     _state = 'playing';
+    window.focus();
+    if (document.activeElement && document.activeElement !== document.body) {
+        document.activeElement.blur();
+    }
 }
 
 // ─── Go to title (show overlay over attract) ─────────────────────
@@ -675,6 +718,7 @@ async function goToTitle() {
 
     if (_activeMode === 'mp') {
         await teardownMP();
+        clearJoinParams();
         await initAttract();
     }
 
@@ -740,6 +784,10 @@ async function startMP(roomCode, options = {}) {
         }
 
         _state = 'playing';
+        window.focus();
+        if (document.activeElement && document.activeElement !== document.body) {
+            document.activeElement.blur();
+        }
     } catch (err) {
         console.error('Failed to start multiplayer:', err);
         // Fall back to title screen on error
@@ -747,7 +795,7 @@ async function startMP(roomCode, options = {}) {
         const banner = document.createElement('div');
         banner.className = 'play-challenge';
         banner.style.color = '#f44';
-        banner.innerHTML = '❌ Failed to connect to multiplayer. Please try again.';
+        banner.innerHTML = '❌ Fehler bei der Verbindung. Bitte erneut versuchen.';
         overlay.insertBefore(banner, overlay.firstChild);
         setTimeout(() => banner.remove(), 5000);
     }
@@ -812,7 +860,7 @@ function _teardownForEngine() {
 document.getElementById('btn-play')?.addEventListener('click', () => {
     currentSetupMode = 'sp';
     const modeTitle = document.getElementById('setup-mode-title');
-    if (modeTitle) modeTitle.textContent = 'SINGLE PLAYER SETUP';
+    if (modeTitle) modeTitle.textContent = 'EINZELSPIELER SETUP';
     
     const cardP1 = document.getElementById('card-p1');
     const cardP2 = document.getElementById('card-p2');
@@ -833,7 +881,7 @@ document.getElementById('btn-play')?.addEventListener('click', () => {
 document.getElementById('btn-2p')?.addEventListener('click', () => {
     currentSetupMode = 'local2p';
     const modeTitle = document.getElementById('setup-mode-title');
-    if (modeTitle) modeTitle.textContent = '2 PLAYER LOCAL SETUP';
+    if (modeTitle) modeTitle.textContent = '2 SPIELER LOKAL SETUP';
     
     const cardP1 = document.getElementById('card-p1');
     const cardP2 = document.getElementById('card-p2');
@@ -854,7 +902,7 @@ document.getElementById('btn-2p')?.addEventListener('click', () => {
 document.getElementById('btn-multi')?.addEventListener('click', () => {
     currentSetupMode = 'network_owner';
     const modeTitle = document.getElementById('setup-mode-title');
-    if (modeTitle) modeTitle.textContent = '2 PLAYER NETWORK SETUP';
+    if (modeTitle) modeTitle.textContent = '2 SPIELER NETZWERK SETUP';
     
     const cardP1 = document.getElementById('card-p1');
     const cardP2 = document.getElementById('card-p2');
@@ -869,7 +917,7 @@ document.getElementById('btn-multi')?.addEventListener('click', () => {
     if (cardNet) cardNet.classList.remove('hide');
     if (spinner) spinner.classList.remove('hide');
     if (linkSec) linkSec.classList.add('hide');
-    if (netStatus) netStatus.textContent = 'Creating room...';
+    if (netStatus) netStatus.textContent = 'Raum wird erstellt...';
     if (startBtn) startBtn.classList.add('hide');
     
     showPanel('setup');
@@ -896,8 +944,8 @@ document.getElementById('btn-copy-link')?.addEventListener('click', async () => 
         await navigator.clipboard.writeText(input.value);
         const btn = document.getElementById('btn-copy-link');
         if (btn) {
-            btn.textContent = 'COPIED!';
-            setTimeout(() => { btn.textContent = 'COPY'; }, 2000);
+            btn.textContent = 'KOPIERT!';
+            setTimeout(() => { btn.textContent = 'KOPIEREN'; }, 2000);
         }
     } catch (e) {
         // Fallback
@@ -1093,7 +1141,7 @@ if (_autoplay) {
     setTimeout(() => {
         currentSetupMode = 'network_joiner';
         const title = document.getElementById('setup-mode-title');
-        if (title) title.textContent = 'JOIN 2-PLAYER GAME';
+        if (title) title.textContent = '2-SPIELER-SPIEL BEITRETEN';
         
         const cardP1 = document.getElementById('card-p1');
         const cardP2 = document.getElementById('card-p2');
@@ -1108,10 +1156,10 @@ if (_autoplay) {
         if (cardNet) cardNet.classList.remove('hide');
         if (spinner) spinner.classList.add('hide');
         if (linkSec) linkSec.classList.add('hide');
-        if (status) status.textContent = `Ready to join room: ${_roomCode}`;
+        if (status) status.textContent = `Bereit, Raum beizutreten: ${_roomCode}`;
         if (startBtn) {
             startBtn.classList.remove('hide');
-            startBtn.textContent = 'JOIN & PLAY';
+            startBtn.textContent = 'BEITRETEN & SPIELEN';
         }
         showPanel('setup');
         syncControlsDisplay();

@@ -85,6 +85,7 @@ class ServerPlayer {
                 this.lives--;
                 if (1 > this.lives) {
                     this.status = 'out';
+                    e._checkLifecycle?.();
                     if ('out' === e.players[0].status && 'out' === e.players[1].status) e.gameOver();
                 } else {
                     // Respawn in home dungeon

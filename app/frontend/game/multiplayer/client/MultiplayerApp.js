@@ -85,7 +85,6 @@ class MultiplayerApp {
         this._initSettingsController();
         this._initLaunchController();
         this._initMessageController();
-        this._initNetworkDebugOverlay();
     }
 
     _initSocketClient() {
@@ -150,6 +149,7 @@ class MultiplayerApp {
         this.launchController = new MultiplayerLaunchController({
             uiController: this.uiController,
             onConnect: (joinType, payload = null) => this._connect(joinType, payload),
+            onRetry: () => this.sessionController?.retryLastMode(),
             beforeJoin: (joinType) => {
                 if (joinType === CLIENT_EVENTS.REFRESH_OPEN_GAMES) return true;
                 return this.settingsController?.requireControlsConfirmed() !== false;
@@ -203,17 +203,7 @@ class MultiplayerApp {
         return this._inputSeq;
     }
 
-    _initNetworkDebugOverlay() {
-        const el = document.createElement('div');
-        el.id = 'networkDebug';
-        el.className = 'hide';
-        document.body.appendChild(el);
-        this._debugTimer = setInterval(() => {
-            const stats = this.snapshotBuffer.getDebugStats();
-            el.textContent = stats.tick === null ? '' : `tick ${stats.tick} · buffer ${stats.buffer} · render -${stats.delayMs}ms`;
-            el.classList.toggle('hide', !this.lastState);
-        }, 500);
-    }
+
 
     _handleMessage(msg) {
         this.messageController.handle(msg);

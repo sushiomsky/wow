@@ -1,10 +1,11 @@
 import { CLIENT_EVENTS } from './multiplayerEvents.js';
 
 export class MultiplayerLaunchController {
-    constructor({ uiController, onConnect, beforeJoin }) {
+    constructor({ uiController, onConnect, beforeJoin, onRetry }) {
         this.uiController = uiController;
         this.onConnect = onConnect;
         this.beforeJoin = beforeJoin;
+        this.onRetry = onRetry;
     }
 
     _connect(joinType, payload = null) {
@@ -38,6 +39,11 @@ export class MultiplayerLaunchController {
             this._connect(CLIENT_EVENTS.JOIN_PRIVATE_PAIR, { code });
         };
 
+        const retryBtn = document.getElementById('btnRetry');
+        if (retryBtn) retryBtn.onclick = () => {
+            if (typeof this.onRetry === 'function') this.onRetry();
+        };
+
         // Battle Royale mode buttons
         const btnSolo = document.getElementById('btnSolo');
         if (btnSolo) {
@@ -48,32 +54,6 @@ export class MultiplayerLaunchController {
             };
         }
 
-        const btnSitNGo = document.getElementById('btnSitNGo');
-        if (btnSitNGo) {
-            btnSitNGo.onclick = () => {
-                console.log('[Launch] Starting Sit-n-Go BR mode');
-                this.uiController.setStatus('Joining Sit-n-Go BR queue...');
-                this._connect(CLIENT_EVENTS.JOIN_SITNGO_BR);
-            };
-        }
-
-        const btnTeamBr = document.getElementById('btnTeamBr');
-        if (btnTeamBr) {
-            btnTeamBr.onclick = () => {
-                console.log('[Launch] Starting Team Endless BR mode');
-                this.uiController.setStatus('Joining Team Endless Battle Royale...');
-                this._connect(CLIENT_EVENTS.JOIN_TEAM_ENDLESS_BR);
-            };
-        }
-        
-        const btnTeamSitNGo = document.getElementById('btnTeamSitNGo');
-        if (btnTeamSitNGo) {
-            btnTeamSitNGo.onclick = () => {
-                console.log('[Launch] Starting Team Sit-n-Go BR mode');
-                this.uiController.setStatus('Joining Team Sit-n-Go BR queue...');
-                this._connect(CLIENT_EVENTS.JOIN_TEAM_SITNGO_BR);
-            };
-        }
     }
 
     applyAutoJoinFromUrl() {

@@ -484,11 +484,11 @@ class GameServer {
             return false;
         }
         
-        // Check if target dungeon has space
-        const availableSlot = this._findAvailableSlot(targetDungeon);
+        // Real BR players may enter a dungeon that was auto-filled with a bot.
+        // Evict one bot before giving up so tunnel travel never dead-ends on filler AI.
+        const availableSlot = this._findAvailableSlot(targetDungeon) ?? this._releaseBotSlot(targetDungeon);
         if (availableSlot === null) {
             console.warn(`[Transfer] Target dungeon ${targetDungeonId} is full`);
-            // TODO: Send error message to client
             return false;
         }
         
@@ -572,6 +572,16 @@ class GameServer {
             if (dungeon.players[i].id === null) {
                 return i;
             }
+        }
+        return null;
+    }
+
+    _releaseBotSlot(dungeon) {
+        for (let i = dungeon.players.length - 1; i >= 0; i--) {
+            const player = dungeon.players[i];
+            if (!player?.id || !player.isBot) continue;
+            this.removeBot(player.id);
+            return i;
         }
         return null;
     }

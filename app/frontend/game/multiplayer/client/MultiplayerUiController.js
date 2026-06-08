@@ -22,15 +22,20 @@ export class MultiplayerUiController {
     }
 
     setButtonState(disabled) {
-        const ids = ['btnPairCreate', 'btnPairJoin', 'btnSolo', 'btnSitNGo', 'btnTeamBr', 'btnTeamSitNGo'];
+        const ids = ['btnPairCreate', 'btnPairJoin', 'btnSolo'];
         for (const id of ids) {
             const el = document.getElementById(id);
             if (el) el.disabled = !!disabled;
         }
     }
 
-    toggleRetry() {
-        // no-op: retry button removed in simplification
+    toggleRetry(show) {
+        const el = document.getElementById('btnRetry');
+        if (!el) return;
+        const visible = !!show;
+        el.classList.toggle('hide', !visible);
+        el.disabled = !visible;
+        el.setAttribute('aria-hidden', String(!visible));
     }
 
     hideOverlay() {

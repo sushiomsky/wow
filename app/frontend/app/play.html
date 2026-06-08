@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
@@ -25,87 +25,87 @@
     <!-- Arcade title overlay — shown until player starts -->
     <div id="play-overlay">
         <h1 class="play-title">WIZARD<br>OF WOR</h1>
-        <div class="play-insert" id="play-insert-text">CHOOSE YOUR MODE</div>
+        <div class="play-insert" id="play-insert-text">WÄHLE DEINEN MODUS</div>
         
         <!-- Mode Selection View -->
         <div id="panel-modes" class="setup-container">
             <!-- Classic Modes -->
             <div class="play-mode-section classic-section">
-                <div class="play-mode-label">CLASSIC</div>
-                <button class="play-btn play-btn-primary" id="btn-play">▶ SINGLE PLAYER</button>
+                <div class="play-mode-label">KLASSISCH</div>
+                <button class="play-btn play-btn-primary" id="btn-play" role="button" aria-label="Einzelspieler starten">▶ EINZELSPIELER</button>
                 <div class="play-secondary-row">
-                    <button class="play-btn-sm green" id="btn-2p">2 PLAYER / 1 DEVICE</button>
+                    <button class="play-btn-sm green" id="btn-2p" role="button" aria-label="Lokaler 2-Spieler-Modus">2 SPIELER / 1 GERÄT</button>
                 </div>
             </div>
             
             <!-- Network and Battle Royale -->
             <div class="play-mode-section network-section">
-                <div class="play-mode-label">NETWORK</div>
-                <p class="mode-desc">Play with another person online using a private room code.</p>
-                <button class="play-btn-private" id="btn-multi">
+                <div class="play-mode-label">NETZWERK</div>
+                <p class="mode-desc">Spiele online mit einer anderen Person über einen privaten Raumcode.</p>
+                <button class="play-btn-private" id="btn-multi" role="button" aria-label="2-Spieler-Netzwerk">
                     <span class="btn-icon">🔗</span>
-                    <span class="btn-label">2 PLAYER NETWORK</span>
+                    <span class="btn-label">2 SPIELER NETZWERK</span>
                 </button>
 
-                <button class="play-btn-br" id="btn-br-endless">
+                <button class="play-btn-br" id="btn-br-endless" role="button" aria-label="Endloser Battle Royale">
                     <span class="btn-icon">⚔</span>
-                    <span class="btn-label">ENDLESS BATTLE ROYALE</span>
-                    <span class="btn-hint">Join anytime • survive the longest</span>
+                    <span class="btn-label">ENDLOSER BATTLE ROYALE</span>
+                    <span class="btn-hint">Jederzeit beitreten • Überlebe am längsten</span>
                 </button>
             </div>
             
-            <div class="play-hint">SPACE · 2 · M · B</div>
+            <div class="play-hint">Steuerung: Pfeiltasten/WASD (Bewegen), Leertaste/Shift/Enter (Schießen)</div>
         </div>
 
         <!-- Unified Setup and Configuration View -->
         <div id="panel-setup" class="setup-container hide">
-            <h2 id="setup-mode-title" class="setup-title">SINGLE PLAYER SETUP</h2>
+            <h2 id="setup-mode-title" class="setup-title">EINZELSPIELER SETUP</h2>
             
             <div class="setup-grid">
                 <!-- Player 1 Config Card -->
                 <div class="setup-card" id="card-p1">
                     <div class="player-color-indicator yellow"></div>
-                    <div class="setup-card-title">P1 (Yellow Warrior)</div>
+                    <div class="setup-card-title">P1 (Gelber Krieger)</div>
                     <div class="controls-display" id="p1-controls-display">
-                        <div>UP: <span id="p1-key-up">-</span></div>
-                        <div>DOWN: <span id="p1-key-down">-</span></div>
-                        <div>LEFT: <span id="p1-key-left">-</span></div>
-                        <div>RIGHT: <span id="p1-key-right">-</span></div>
-                        <div>FIRE: <span id="p1-key-fire">-</span></div>
+                        <div>OBEN: <span id="p1-key-up">-</span></div>
+                        <div>UNTEN: <span id="p1-key-down">-</span></div>
+                        <div>LINKS: <span id="p1-key-left">-</span></div>
+                        <div>RECHTS: <span id="p1-key-right">-</span></div>
+                        <div>FEUER: <span id="p1-key-fire">-</span></div>
                     </div>
                     <div class="setup-card-actions">
-                        <button type="button" class="setup-action-btn" id="btn-p1-default">DEFAULT</button>
-                        <button type="button" class="setup-action-btn customize" id="btn-p1-custom">CUSTOMIZE</button>
+                        <button type="button" class="setup-action-btn" id="btn-p1-default" role="button">STANDARD</button>
+                        <button type="button" class="setup-action-btn customize" id="btn-p1-custom" role="button">ANPASSEN</button>
                     </div>
                 </div>
 
                 <!-- Player 2 Config Card -->
                 <div class="setup-card hide" id="card-p2">
                     <div class="player-color-indicator blue"></div>
-                    <div class="setup-card-title">P2 (Blue Warrior)</div>
+                    <div class="setup-card-title">P2 (Blauer Krieger)</div>
                     <div class="controls-display" id="p2-controls-display">
-                        <div>UP: <span id="p2-key-up">-</span></div>
-                        <div>DOWN: <span id="p2-key-down">-</span></div>
-                        <div>LEFT: <span id="p2-key-left">-</span></div>
-                        <div>RIGHT: <span id="p2-key-right">-</span></div>
-                        <div>FIRE: <span id="p2-key-fire">-</span></div>
+                        <div>OBEN: <span id="p2-key-up">-</span></div>
+                        <div>UNTEN: <span id="p2-key-down">-</span></div>
+                        <div>LINKS: <span id="p2-key-left">-</span></div>
+                        <div>RECHTS: <span id="p2-key-right">-</span></div>
+                        <div>FEUER: <span id="p2-key-fire">-</span></div>
                     </div>
                     <div class="setup-card-actions">
-                        <button type="button" class="setup-action-btn" id="btn-p2-default">DEFAULT</button>
-                        <button type="button" class="setup-action-btn customize" id="btn-p2-custom">CUSTOMIZE</button>
+                        <button type="button" class="setup-action-btn" id="btn-p2-default" role="button">STANDARD</button>
+                        <button type="button" class="setup-action-btn customize" id="btn-p2-custom" role="button">ANPASSEN</button>
                     </div>
                 </div>
 
                 <!-- Network Invite/Link Card -->
                 <div class="setup-card hide" id="card-network">
-                    <div class="setup-card-title">NETWORK GAME</div>
-                    <div id="network-spinner" class="spinner">CREATING ROOM...</div>
+                    <div class="setup-card-title">NETZWERK SPIEL</div>
+                    <div id="network-spinner" class="spinner">RAUM WIRD ERSTELLT...</div>
                     
                     <div id="network-link-section" class="hide">
-                        <p class="network-invite-text">Share this link with a friend to play:</p>
+                        <p class="network-invite-text">Teile diesen Link mit einem Freund. Sobald er beitritt, startet das Spiel automatisch:</p>
                         <div class="link-copy-container">
                             <input type="text" id="share-link-input" readonly value="">
-                            <button type="button" id="btn-copy-link">COPY</button>
+                            <button type="button" id="btn-copy-link" role="button">KOPIEREN</button>
                         </div>
                     </div>
                     
@@ -115,8 +115,9 @@
 
             <!-- Start Game & Cancel Button Actions -->
             <div class="setup-start-actions">
-                <button type="button" class="play-btn play-btn-primary" id="btn-setup-start">START GAME</button>
-                <button type="button" class="play-btn-sm dark" id="btn-setup-cancel">CANCEL</button>
+                <div id="controls-warning" class="hide" style="color: #f44; font-size: 12px; margin-bottom: 12px; text-align: center; font-weight: bold;">Konflikt: P1 und P2 verwenden dieselben Tasten!</div>
+                <button type="button" class="play-btn play-btn-primary" id="btn-setup-start" role="button">SPIEL STARTEN</button>
+                <button type="button" class="play-btn-sm dark" id="btn-setup-cancel" role="button">ABBRECHEN</button>
             </div>
         </div>
     </div>
@@ -124,18 +125,18 @@
     <!-- Key Rebinding Sequential Capture Modal -->
     <div id="controls-modal" class="modal-overlay hide">
         <div class="modal-content">
-            <h3 id="modal-title">CUSTOMIZE KEYS</h3>
-            <p id="modal-subtitle">P1 (Yellow Warrior)</p>
-            <div class="modal-prompt" id="modal-prompt">Press key for UP</div>
+            <h3 id="modal-title">TASTEN ANPASSEN</h3>
+            <p id="modal-subtitle">P1 (Gelber Krieger)</p>
+            <div class="modal-prompt" id="modal-prompt">Drücke eine Taste für OBEN</div>
             <div class="modal-keys-list">
-                <div id="modal-row-up" class="modal-row">UP: <span id="modal-val-up">-</span></div>
-                <div id="modal-row-down" class="modal-row">DOWN: <span id="modal-val-down">-</span></div>
-                <div id="modal-row-left" class="modal-row">LEFT: <span id="modal-val-left">-</span></div>
-                <div id="modal-row-right" class="modal-row">RIGHT: <span id="modal-val-right">-</span></div>
-                <div id="modal-row-fire" class="modal-row">FIRE: <span id="modal-val-fire">-</span></div>
+                <div id="modal-row-up" class="modal-row">OBEN: <span id="modal-val-up">-</span></div>
+                <div id="modal-row-down" class="modal-row">UNTEN: <span id="modal-val-down">-</span></div>
+                <div id="modal-row-left" class="modal-row">LINKS: <span id="modal-val-left">-</span></div>
+                <div id="modal-row-right" class="modal-row">RECHTS: <span id="modal-val-right">-</span></div>
+                <div id="modal-row-fire" class="modal-row">FEUER: <span id="modal-val-fire">-</span></div>
             </div>
-            <p class="modal-hint">Press any key to bind, or Esc to cancel</p>
-            <button type="button" class="modal-btn-cancel" id="btn-modal-cancel">CANCEL</button>
+            <p class="modal-hint">Drücke eine beliebige Taste zum Zuweisen, oder Esc zum Abbrechen</p>
+            <button type="button" class="modal-btn-cancel" id="btn-modal-cancel" role="button">ABBRECHEN</button>
         </div>
     </div>
 

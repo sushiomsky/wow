@@ -118,6 +118,7 @@ export class MultiplayerSessionController {
         if (socketClient) socketClient.disconnect();
         if (typeof this.onResetState === 'function') this.onResetState();
         this._hasJoinedGame = false;
+        this._clearJoinParams();
         this.uiController.hideGameSurface();
         this.audio.stopAll();
         this.uiController.showOverlay();
@@ -125,6 +126,11 @@ export class MultiplayerSessionController {
         this.uiController.setButtonState(false);
         this.uiController.setStatus('Select a mode to join.');
         this.uiController.setStatusError(false);
+    }
+
+    retryLastMode() {
+        if (!this._lastJoinType) return;
+        this.connect(this._lastJoinType, this._lastJoinPayload);
     }
 
     _scheduleReconnect() {
@@ -151,5 +157,19 @@ export class MultiplayerSessionController {
         if (!this._reconnectTimer) return;
         clearTimeout(this._reconnectTimer);
         this._reconnectTimer = null;
+    }
+
+    _clearJoinParams() {
+        const url = new URL(window.location.href);
+        let changed = false;
+        for (const key of ['room', 'pair']) {
+            if (url.searchParams.has(key)) {
+                url.searchParams.delete(key);
+                changed = true;
+            }
+        }
+        if (!changed) return;
+        const next = `${url.pathname}${url.search}${url.hash}`;
+        window.history.replaceState({}, '', next);
     }
 }

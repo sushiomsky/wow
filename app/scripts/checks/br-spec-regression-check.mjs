@@ -250,6 +250,67 @@ function testOwnerFinalDeathTriggersCollapseDuringScan() {
   assert.ok(dungeon.collapseUntil > Date.now(), 'collapse has an active countdown');
 }
 
+function testForeignFinalDeathCollapsesHomeAndClearsAwaySlot() {
+  const server = makeServer();
+  const home = addDungeon(server);
+  const away = addDungeon(server);
+  const visitor = new ServerPlayer(1, away, 'visitor', home.id);
+  visitor.homeSlot = 0;
+  visitor.status = 'dead';
+  visitor.lives = 1;
+  visitor.frameCounters.dead = Math.round(away.scanFPS * 2) + 1;
+  away.addPlayer(visitor);
+  const conn = makeConn(visitor, away.id);
+  server.connections.set('visitor', conn);
+
+  visitor.scanRoutine({});
+  assert.equal(visitor.status, 'out', 'visitor is eliminated on final death abroad');
+  assert.equal(home.lifecycleState, STATE.COLLAPSING, 'visitor home dungeon collapses after final death abroad');
+  assert.equal(conn.dungeonId, home.id, 'eliminated visitor connection follows home collapse state');
+  assert.equal(away.players.every((p) => p.id !== 'visitor'), true, 'foreign dungeon slot is cleared after final death');
+}
+
+function testSharedHomeDoesNotCollapseUntilAllRealPlayersOut() {
+  const server = makeServer();
+  const dungeon = addDungeon(server);
+  const playerA = new ServerPlayer(0, dungeon, 'a', dungeon.id);
+  const playerB = new ServerPlayer(1, dungeon, 'b', dungeon.id);
+  playerA.status = 'dead';
+  playerA.lives = 1;
+  playerA.frameCounters.dead = Math.round(dungeon.scanFPS * 2) + 1;
+  playerB.status = 'alive';
+  dungeon.addPlayer(playerA);
+  dungeon.addPlayer(playerB);
+
+  playerA.scanRoutine({});
+  assert.equal(playerA.status, 'out');
+  assert.equal(dungeon.lifecycleState, STATE.ACTIVE, 'shared-home dungeon remains active while another real player is alive');
+
+  playerB.status = 'out';
+  dungeon._checkLifecycle();
+  assert.equal(dungeon.lifecycleState, STATE.COLLAPSING, 'shared-home dungeon collapses after all real players are out');
+}
+
+function testCollapseTimeoutFinalDeathCollapsesVisitorHome() {
+  const server = makeServer();
+  const collapsing = addDungeon(server);
+  const home = addDungeon(server);
+  const visitor = new ServerPlayer(1, collapsing, 'visitor', home.id);
+  visitor.homeSlot = 0;
+  visitor.status = 'alive';
+  visitor.lives = 1;
+  collapsing.addPlayer(visitor);
+  const conn = makeConn(visitor, collapsing.id);
+  server.connections.set('visitor', conn);
+
+  server.applyCollapseTimeoutPenalty(collapsing, visitor);
+  assert.equal(visitor.lives, 0, 'fatal collapse timeout consumes final life');
+  assert.equal(visitor.status, 'out');
+  assert.equal(home.lifecycleState, STATE.COLLAPSING, 'fatal timeout collapses the visitor home dungeon');
+  assert.equal(conn.dungeonId, home.id, 'connection moves to home collapse state after fatal timeout');
+  assert.equal(collapsing.players.every((p) => p.id !== 'visitor'), true, 'visitor is removed from the timed-out dungeon');
+}
+
 function testCollapseStateVisibleInSnapshot() {
   const server = makeServer();
   const dungeon = addDungeon(server);
@@ -321,6 +382,9 @@ const tests = [
   testCollapseTimeoutPenaltyRespawnsHome,
   testCollapseDefaultsToSixtySeconds,
   testOwnerFinalDeathTriggersCollapseDuringScan,
+  testForeignFinalDeathCollapsesHomeAndClearsAwaySlot,
+  testSharedHomeDoesNotCollapseUntilAllRealPlayersOut,
+  testCollapseTimeoutFinalDeathCollapsesVisitorHome,
   testCollapseStateVisibleInSnapshot,
   testBotPartnerDoesNotBlockOwnerCollapse,
   testDestroyedDungeonWaitsForMonsterCleanup,

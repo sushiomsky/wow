@@ -398,16 +398,35 @@ class GameServer {
     applyCollapseTimeoutPenalty(collapsingDungeon, player) {
         if (!player || !player.id || player.homeDungeonId === collapsingDungeon.id || player.status === 'out') return;
         player.lives = Math.max(0, (player.lives || 0) - 1);
-        collapsingDungeon.removePlayer(player);
         if (player.lives <= 0) {
             player.status = 'out';
-            const conn = this.connections.get(player.id);
-            if (conn) conn.player = player;
+            this.handlePlayerFinalDeath(player, collapsingDungeon);
             console.log(`[GameServer] collapse timeout eliminated player ${player.id}`);
             return;
         }
+        collapsingDungeon.removePlayer(player);
         player.status = 'wait';
         this.respawnPlayerInHome(player);
+    }
+
+    handlePlayerFinalDeath(player, sourceDungeon = null) {
+        if (!player || !player.id) return;
+        const homeDungeon = this.dungeons.get(player.homeDungeonId);
+        if (sourceDungeon && sourceDungeon.id !== player.homeDungeonId) {
+            sourceDungeon.removePlayer(player);
+        }
+
+        const conn = this.connections.get(player.id);
+        if (conn) {
+            conn.player = player;
+            conn.dungeonId = homeDungeon && homeDungeon.lifecycleState !== STATE.DESTROYED ? homeDungeon.id : null;
+        }
+
+        if (!homeDungeon || homeDungeon.lifecycleState === STATE.DESTROYED) {
+            console.log(`[GameServer] player ${player.id} home dungeon gone — eliminated`);
+            return;
+        }
+        homeDungeon.triggerOwnerEliminated?.(player);
     }
 
     /**

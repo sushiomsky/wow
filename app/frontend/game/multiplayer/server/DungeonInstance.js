@@ -605,19 +605,27 @@ class DungeonInstance {
         }
     }
 
-    // Transitions dungeon to COLLAPSING when all home players have lost their final life
+    // Transitions dungeon to COLLAPSING when all home players have lost their final life.
     _checkLifecycle() {
         const homePlayers = this.players.filter(p => p.id && !p.isBot && p.homeDungeonId === this.id);
         if (homePlayers.length > 0 && homePlayers.every(p => p.status === 'out')) {
-            if (this.lifecycleState === STATE.ACTIVE) {
-                // Notify eliminated players with their final stats
-                this.gameServer.notifyPlayersEliminated(homePlayers, this);
-
-                this.lifecycleState = STATE.COLLAPSING;
-                this.collapseUntil = Date.now() + COLLAPSE_COUNTDOWN_MS;
-                this.teleportStatus = 'open'; // force open during collapse
-            }
+            this._startCollapseForEliminatedPlayers(homePlayers);
         }
+    }
+
+    triggerOwnerEliminated(player) {
+        if (!player || player.isBot || player.homeDungeonId !== this.id) return;
+        const otherHomePlayers = this.players.filter(p => p.id && p.id !== player.id && !p.isBot && p.homeDungeonId === this.id);
+        if (otherHomePlayers.some(p => p.status !== 'out')) return;
+        this._startCollapseForEliminatedPlayers([player, ...otherHomePlayers]);
+    }
+
+    _startCollapseForEliminatedPlayers(players) {
+        if (this.lifecycleState !== STATE.ACTIVE) return;
+        this.gameServer.notifyPlayersEliminated(players, this);
+        this.lifecycleState = STATE.COLLAPSING;
+        this.collapseUntil = Date.now() + COLLAPSE_COUNTDOWN_MS;
+        this.teleportStatus = 'open'; // force open during collapse
     }
 
     _resetBorderColor() {

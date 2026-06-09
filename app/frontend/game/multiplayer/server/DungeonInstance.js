@@ -665,6 +665,8 @@ class DungeonInstance {
             doubleScoreNow: this.doubleScoreNow,
             doubleScoreNext: this.doubleScoreNext,
             afterLastThorwor: this.afterLastThorwor,
+            clearState: this._getClearState(),
+            destructionReady: this._isDestructionReady(),
             frameCounters: { ...this.frameCounters },
             animateSkip: { ...this.animateSkip },
             collapseUntil: this.collapseUntil,
@@ -721,9 +723,25 @@ class DungeonInstance {
         return this.serialize();
     }
 
+    _getClearState() {
+        if (this.scene === 'getReady' && this.level > 0) return 'replacing';
+        if (this.scene === 'dungeon') return 'active';
+        return this.scene;
+    }
+
+    _isDestructionReady() {
+        if (this.lifecycleState !== STATE.EMPTY) return false;
+        const hasPlayersInside = this.players.some(p => p.id !== null);
+        const monstersResolved = this.monsters.length === 0 || this.monsters.every(m => m.status === 'died' || m.status === 'escaped');
+        return !hasPlayersInside && monstersResolved;
+    }
+
     _getTunnelState(side) {
         const target = side === 'right' ? this.rightTunnelTarget : this.leftTunnelTarget;
         if (!target) return { directionMode: 'SAME_DUNGEON_ONLY', enabled: true, targetDungeonId: null, entrySide: null };
+        if (!this.gameServer.dungeons.has(target.dungeonId)) {
+            return { directionMode: 'STALE', enabled: false, targetDungeonId: target.dungeonId, entrySide: target.entrySide };
+        }
         const blocked = this.gameServer.isDungeonEntryBlocked?.(target.dungeonId, this.id) === true;
         return {
             directionMode: blocked ? 'BLOCKED' : (this.lifecycleState === STATE.COLLAPSING ? 'ONE_WAY_OUT' : 'CONNECTED_TWO_WAY'),

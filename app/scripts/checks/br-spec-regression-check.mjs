@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
 
 const require = createRequire(import.meta.url);
+const http = require('node:http');
 const { GameServer } = require('../../frontend/game/multiplayer/server/GameServer');
 const { DungeonInstance, STATE } = require('../../frontend/game/multiplayer/server/DungeonInstance');
 const { ServerPlayer } = require('../../frontend/game/multiplayer/server/ServerPlayer');
@@ -13,9 +14,9 @@ function makeServer() {
   const server = Object.create(GameServer.prototype);
   server.connections = new Map();
   server.dungeons = new Map();
+  server.privatePairLobbies = new Map();
   server.bots = new Map();
   server.battleRoyaleMode = false;
-  server.removeBotsFromDungeon = () => {};
   server._sendInit = () => {};
   server._broadcastToDungeon = () => {};
   server._send = () => {};
@@ -32,6 +33,19 @@ function makeConn(player = null, dungeonId = null) {
   return { ws: { readyState: 1, send() {} }, player, dungeonId, inputs: {} };
 }
 
+
+function testBattleRoyaleModeDefaultsEnabled() {
+  const original = process.env.BATTLE_ROYALE;
+  delete process.env.BATTLE_ROYALE;
+  const httpServer = http.createServer();
+  const server = new GameServer(httpServer);
+  clearInterval(server._loop);
+  server.stop();
+  httpServer.close();
+  if (original === undefined) delete process.env.BATTLE_ROYALE;
+  else process.env.BATTLE_ROYALE = original;
+  assert.equal(server.battleRoyaleMode, true, 'battle royale connectivity is enabled by default');
+}
 
 function testEndlessPlayersGetSeparateConnectedHomes() {
   const server = makeServer();
@@ -161,6 +175,82 @@ function testCollapseBlocksEntryButAllowsExit() {
   assert.equal(server.isDungeonEntryBlocked(safe.id, collapsing.id), false, 'players may leave collapsing dungeon outward');
 }
 
+
+function testServerTransferRejectsCollapsingTarget() {
+  const server = makeServer();
+  const source = addDungeon(server);
+  const collapsing = addDungeon(server);
+  collapsing.lifecycleState = STATE.COLLAPSING;
+  const player = new ServerPlayer(0, source, 'p1', source.id);
+  player.status = 'alive';
+  source.addPlayer(player);
+  const conn = makeConn(player, source.id);
+  server.connections.set('p1', conn);
+
+  assert.equal(server.transferPlayerToDungeon(player, source, collapsing.id, 'left'), false, 'server transfer refuses entry into collapsing target');
+  assert.equal(conn.dungeonId, source.id);
+  assert.equal(source.players.some((p) => p.id === 'p1'), true, 'player remains in source dungeon');
+  assert.equal(collapsing.players.every((p) => p.id !== 'p1'), true, 'player is not inserted into collapsing target');
+}
+
+function testDisconnectCleanupDestroysBotOnlyDungeon() {
+  const server = makeServer();
+  server.battleRoyaleMode = true;
+  server.dungeonGraph = new DungeonGraph();
+  server.endlessBRQueue = { removePlayer() {} };
+  const dungeon = addDungeon(server);
+  dungeon.matchMode = 'endless_br';
+  const player = new ServerPlayer(0, dungeon, 'human', dungeon.id);
+  player.status = 'alive';
+  dungeon.addPlayer(player);
+  const bot = server.spawnBot(dungeon.id, 1);
+  assert.ok(bot);
+  const conn = makeConn(player, dungeon.id);
+  conn.mode = 'endless_br';
+  server.connections.set('human', conn);
+
+  server._leaveCurrentGame(conn);
+  assert.equal(server.dungeons.has(dungeon.id), false, 'bot-only dungeon is destroyed after real player leaves');
+  assert.equal(server.bots.has(bot.id), false, 'bot-only cleanup removes filler bot');
+}
+
+function testAwayDisconnectAlsoDestroysOriginalBotOnlyHome() {
+  const server = makeServer();
+  server.battleRoyaleMode = true;
+  server.dungeonGraph = new DungeonGraph();
+  const home = addDungeon(server);
+  const away = addDungeon(server);
+  const owner = new ServerPlayer(0, away, 'owner', away.id);
+  owner.status = 'alive';
+  away.addPlayer(owner);
+  server.connections.set('owner', makeConn(owner, away.id));
+  const traveler = new ServerPlayer(0, home, 'traveler', home.id);
+  traveler.status = 'alive';
+  home.addPlayer(traveler);
+  const bot = server.spawnBot(home.id, 1);
+  const conn = makeConn(traveler, home.id);
+  conn.mode = 'endless_br';
+  server.connections.set('traveler', conn);
+
+  assert.equal(server.transferPlayerToDungeon(traveler, home, away.id, 'left'), true);
+  server._leaveCurrentGame(conn);
+
+  assert.equal(server.dungeons.has(away.id), true, 'visited dungeon remains because its owner is still present');
+  assert.equal(server.dungeons.has(home.id), false, 'traveler original bot-only home is destroyed on disconnect');
+  assert.equal(server.bots.has(bot.id), false, 'traveler home filler bot is removed');
+}
+
+function testActiveGamesSnapshotHidesBotOnlyDungeons() {
+  const server = makeServer();
+  const dungeon = addDungeon(server);
+  dungeon.matchMode = 'endless_br';
+  server.spawnBot(dungeon.id, 0);
+  server.spawnBot(dungeon.id, 1);
+
+  const snapshot = server.getActiveGamesSnapshot();
+  assert.equal(snapshot.games.length, 0, 'bot-only dungeons are not listed as active public games');
+  assert.equal(snapshot.total_players, 0);
+}
 
 function testTransferEvictsBotInsteadOfEndingMatch() {
   const server = makeServer();
@@ -342,6 +432,8 @@ function testSnapshotIncludesSpecModelFields() {
   assert.equal(snapshot.ownerPlayerId, 'owner');
   assert.equal(snapshot.state, STATE.ACTIVE);
   assert.equal(snapshot.playersInside, 1);
+  assert.equal(snapshot.clearState, 'title');
+  assert.equal(snapshot.destructionReady, false);
   assert.equal(snapshot.leftTunnelState.directionMode, 'CONNECTED_TWO_WAY');
   assert.equal(snapshot.rightTunnelState.directionMode, 'SAME_DUNGEON_ONLY');
   assert.equal(snapshot.players[0].currentDungeonId, dungeon.id);
@@ -422,10 +514,29 @@ function testDestroyedDungeonClearsStaleTunnelTargets() {
   assert.equal(a.rightTunnelTarget, null);
 }
 
+function testSnapshotReportsStaleTunnelAndDestructionReadiness() {
+  const server = makeServer();
+  const dungeon = addDungeon(server);
+  dungeon.leftTunnelTarget = { dungeonId: 'missing', entrySide: 'right' };
+  let snapshot = dungeon.serialize();
+  assert.equal(snapshot.leftTunnelState.directionMode, 'STALE');
+  assert.equal(snapshot.leftTunnelState.enabled, false);
+
+  dungeon.leftTunnelTarget = null;
+  dungeon.lifecycleState = STATE.EMPTY;
+  snapshot = dungeon.serialize();
+  assert.equal(snapshot.destructionReady, true, 'empty dungeon with no players or monsters reports destruction-ready');
+}
+
 const tests = [
+  testBattleRoyaleModeDefaultsEnabled,
   testEndlessPlayersGetSeparateConnectedHomes,
   testTransferPreservesHomeDungeon,
   testCollapseBlocksEntryButAllowsExit,
+  testServerTransferRejectsCollapsingTarget,
+  testDisconnectCleanupDestroysBotOnlyDungeon,
+  testAwayDisconnectAlsoDestroysOriginalBotOnlyHome,
+  testActiveGamesSnapshotHidesBotOnlyDungeons,
   testTransferEvictsBotInsteadOfEndingMatch,
   testMonstersRemainInSourceDungeonOnPlayerTravel,
   testPlayerBulletPvPDeductsLifeServerSide,
@@ -443,6 +554,7 @@ const tests = [
   testDestroyedDungeonWaitsForPlayerAndMonsterCleanup,
   testCollapseTimeoutResolvesBotAndOwnerSlotsBeforeDestruction,
   testDestroyedDungeonClearsStaleTunnelTargets,
+  testSnapshotReportsStaleTunnelAndDestructionReadiness,
 ];
 
 for (const test of tests) test();

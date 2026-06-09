@@ -49,7 +49,7 @@ class GameServer {
         
         // NEW: Dungeon graph for battle royale mode
         this.dungeonGraph = new DungeonGraph();
-        this.battleRoyaleMode = process.env.BATTLE_ROYALE === 'true'; // Feature flag
+        this.battleRoyaleMode = process.env.BATTLE_ROYALE !== 'false'; // Endless BR is the default multiplayer mode.
         
         // NEW: Bot management
         this.bots = new Map(); // botId -> BotPlayer instance
@@ -100,10 +100,15 @@ class GameServer {
 
     _leaveCurrentGame(conn) {
         if (!conn.player) return;
+        const homeDungeonId = conn.player.homeDungeonId;
         const dungeon = this.dungeons.get(conn.dungeonId);
         if (dungeon) {
             dungeon.removePlayer(conn.player);
             this._checkDungeonEmpty(dungeon);
+        }
+        if (homeDungeonId && homeDungeonId !== conn.dungeonId) {
+            const homeDungeon = this.dungeons.get(homeDungeonId);
+            if (homeDungeon) this._checkDungeonEmpty(homeDungeon);
         }
         conn.player = null;
         conn.dungeonId = null;
@@ -360,11 +365,15 @@ class GameServer {
     }
 
     _checkDungeonEmpty(dungeon) {
-        const hasRealPlayers = dungeon.players.some(p => p.id !== null);
+        const hasRealPlayers = this._hasRealPlayers(dungeon);
         if (!hasRealPlayers && dungeon.lifecycleState !== STATE.DESTROYED) {
             this._removePrivateLobbyByDungeonId(dungeon.id);
             this.onDungeonDestroyed(dungeon.id);
         }
+    }
+
+    _hasRealPlayers(dungeon) {
+        return dungeon.players.some(p => p.id !== null && !p.isBot);
     }
 
     onDungeonDestroyed(dungeonId) {
@@ -513,6 +522,10 @@ class GameServer {
         const targetDungeon = this.dungeons.get(targetDungeonId);
         if (!targetDungeon) {
             console.error(`[Transfer] Target dungeon ${targetDungeonId} not found`);
+            return false;
+        }
+        if (this.isDungeonEntryBlocked(targetDungeonId, sourceDungeon.id)) {
+            console.warn(`[Transfer] Target dungeon ${targetDungeonId} is not enterable`);
             return false;
         }
         
@@ -809,7 +822,7 @@ class GameServer {
             if (dungeon.lifecycleState === STATE.DESTROYED) continue;
             if (this._hasWaitingPrivateLobby(dungeonId)) continue;
             const players = dungeon.players.filter((player) => player.id !== null);
-            if (!players.length) continue;
+            if (!players.length || !this._hasRealPlayers(dungeon)) continue;
             const mode = this._toSnapshotMode(dungeon.matchMode);
             games.push({
                 dungeon_id: dungeonId,
@@ -909,6 +922,7 @@ class GameServer {
             if (dungeon.lifecycleState === STATE.DESTROYED) continue;
             
             const players = dungeon.players.filter((player) => player.id !== null);
+            if (!this._hasRealPlayers(dungeon)) continue;
             
             dungeons.push({
                 id: dungeonId,

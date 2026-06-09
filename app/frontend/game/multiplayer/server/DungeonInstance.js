@@ -31,6 +31,7 @@ class DungeonInstance {
         this.gameServer = gameServer;
         this.createdAt = new Date().toISOString();
         this.matchMode = null;
+        this.ownerPlayerId = null;
 
         // Tunnel connections  { dungeonId, side: 'left'|'right' }
         this.leftTunnelTarget = null;   // what you reach by exiting the left wall
@@ -95,6 +96,9 @@ class DungeonInstance {
     addPlayer(serverPlayer) {
         this.players[serverPlayer.num] = serverPlayer;
         serverPlayer.engine = this;
+        if (!this.ownerPlayerId && serverPlayer.id && !serverPlayer.isBot && serverPlayer.homeDungeonId === this.id) {
+            this.ownerPlayerId = serverPlayer.id;
+        }
         this.numOfPlayers = this.players.filter(p => p.id !== null).length;
     }
 
@@ -256,8 +260,7 @@ class DungeonInstance {
             // Collapse timeout: visitors still inside lose one life and are moved
             // back to their own home dungeon. Owners are already eliminated.
             if (this.collapseUntil !== null && Date.now() >= this.collapseUntil) {
-                const visitors = this.players.filter((p) => p.id && p.homeDungeonId !== this.id && p.status !== 'out');
-                for (const p of visitors) this.gameServer.applyCollapseTimeoutPenalty(this, p);
+                this.gameServer.resolveCollapseTimeoutPlayers(this);
                 this.lifecycleState = STATE.EMPTY;
                 this.speedMultiplier = FAST_SPEED_MULTIPLIER;
             }
@@ -272,7 +275,9 @@ class DungeonInstance {
         }
 
         if (this.lifecycleState === STATE.EMPTY) {
-            if (this.monsters.length === 0 || this.monsters.every(m => m.status === 'died' || m.status === 'escaped')) {
+            const hasPlayersInside = this.players.some(p => p.id !== null);
+            const monstersResolved = this.monsters.length === 0 || this.monsters.every(m => m.status === 'died' || m.status === 'escaped');
+            if (!hasPlayersInside && monstersResolved) {
                 this.lifecycleState = STATE.DESTROYED;
                 this.gameServer.onDungeonDestroyed(this.id);
                 return;
@@ -641,7 +646,10 @@ class DungeonInstance {
     serialize() {
         return {
             dungeonId: this.id,
+            ownerPlayerId: this.ownerPlayerId,
+            state: this.lifecycleState,
             lifecycleState: this.lifecycleState,
+            playersInside: this.players.filter(p => p.id !== null).length,
             scene: this.scene,
             level: this.level,
             wallType: this.wallType,
@@ -664,11 +672,19 @@ class DungeonInstance {
             collapseRemainingSeconds: this.collapseUntil === null
                 ? null
                 : Math.max(0, Math.ceil((this.collapseUntil - Date.now()) / 1000)),
+            tunnelState: {
+                left: this._getTunnelState('left'),
+                right: this._getTunnelState('right'),
+            },
+            leftTunnelState: this._getTunnelState('left'),
+            rightTunnelState: this._getTunnelState('right'),
             leftTunnelTarget: this.leftTunnelTarget,
             rightTunnelTarget: this.rightTunnelTarget,
             players: this.players.map(p => ({
                 id: p.id,
+                name: p.name || p.id,
                 num: p.num,
+                currentDungeonId: p.id ? this.id : null,
                 // colorNum stays fixed to the player's home slot so their sprite colour
                 // doesn't change when they visit a foreign dungeon and get a different num.
                 colorNum: p._homeSlot !== undefined ? p._homeSlot : (p.homeSlot ?? p.num),
@@ -676,6 +692,7 @@ class DungeonInstance {
                 col: p.col, row: p.row,
                 d: p.d,
                 status: p.status,
+                aliveState: p.status,
                 animationSequence: p.animationSequence,
                 frameCounters: { ...p.frameCounters },
                 lives: p.lives,
@@ -684,11 +701,14 @@ class DungeonInstance {
                 isHome: p.homeDungeonId === this.id,
             })),
             monsters: this.monsters.map(m => ({
+                id: m.id,
+                dungeonId: m.dungeonId,
                 type: m.type,
                 x: m.x, y: m.y,
                 col: m.col, row: m.row,
                 d: m.d,
                 status: m.status,
+                alive: m.status === 'alive',
                 visible: m.visible,
                 animationSequence: m.animationSequence,
             })),
@@ -701,15 +721,27 @@ class DungeonInstance {
         return this.serialize();
     }
 
+    _getTunnelState(side) {
+        const target = side === 'right' ? this.rightTunnelTarget : this.leftTunnelTarget;
+        if (!target) return { directionMode: 'SAME_DUNGEON_ONLY', enabled: true, targetDungeonId: null, entrySide: null };
+        const blocked = this.gameServer.isDungeonEntryBlocked?.(target.dungeonId, this.id) === true;
+        return {
+            directionMode: blocked ? 'BLOCKED' : (this.lifecycleState === STATE.COLLAPSING ? 'ONE_WAY_OUT' : 'CONNECTED_TWO_WAY'),
+            enabled: !blocked,
+            targetDungeonId: target.dungeonId,
+            entrySide: target.entrySide,
+        };
+    }
+
     _collectBullets() {
         const bullets = [];
         for (let i = 0; i < 2; i++) {
             const p = this.players[i];
-            if (p.bullet) bullets.push({ ownerType: 'player', ownerNum: p.num, x: p.bullet.x, y: p.bullet.y, d: p.bullet.d, bw: p.bullet.bw, bh: p.bullet.bh });
+            if (p.bullet) bullets.push({ ownerType: 'player', ownerNum: p.num, id: p.bullet.id, ownerPlayerId: p.bullet.ownerPlayerId, dungeonId: p.bullet.dungeonId, active: p.bullet.active, lifetimeTicks: p.bullet.lifetimeTicks, speed: p.bullet.speed, x: p.bullet.x, y: p.bullet.y, d: p.bullet.d, bw: p.bullet.bw, bh: p.bullet.bh });
         }
         for (let i = 0; i < this.monsters.length; i++) {
             const m = this.monsters[i];
-            if (m.bullet) bullets.push({ ownerType: 'monster', ownerNum: -1, x: m.bullet.x, y: m.bullet.y, d: m.bullet.d, bw: m.bullet.bw, bh: m.bullet.bh });
+            if (m.bullet) bullets.push({ ownerType: 'monster', ownerNum: -1, id: m.bullet.id, ownerPlayerId: null, dungeonId: m.bullet.dungeonId, active: m.bullet.active, lifetimeTicks: m.bullet.lifetimeTicks, speed: m.bullet.speed, x: m.bullet.x, y: m.bullet.y, d: m.bullet.d, bw: m.bullet.bw, bh: m.bullet.bh });
         }
         return bullets;
     }

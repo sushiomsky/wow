@@ -3,6 +3,8 @@
 const { scoring } = require('./serverConstants');
 const { overlaps } = require('./serverUtils');
 
+let nextBulletId = 1;
+
 /**
  * A projectile fired by either a player or a monster.
  * Moves a fixed number of pixels per tick and is destroyed on impact with a
@@ -10,11 +12,17 @@ const { overlaps } = require('./serverUtils');
  */
 class ServerBullet {
     constructor(owner, x, bY, d, engine) {
+        this.id = `bullet-${nextBulletId++}`;
         this.owner = owner;
+        this.ownerPlayerId = owner.type === 'player' ? owner.id : null;
+        this.dungeonId = engine.id;
         this.x = x;
         this.y = bY;
         this.d = d;
         this.engine = engine;
+        this.speed = owner.type === 'player' ? 8 : 8;
+        this.lifetimeTicks = 0;
+        this.active = true;
         this.bh = this.bw = this.row = this.col = 0;
         if ('up' === this.d || 'down' === this.d) {
             this.col = this.owner.col;
@@ -32,6 +40,7 @@ class ServerBullet {
      * players, and inner walls, then moves the bullet forward if no collision occurred.
      */
     scanRoutine() {
+        this.lifetimeTicks++;
         const e = this.engine;
         if ('shooted' === this.owner.status || 'died' === this.owner.status) {
             this.owner.bullet = false;

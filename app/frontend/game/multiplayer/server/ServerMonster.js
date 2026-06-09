@@ -4,6 +4,8 @@ const { directions } = require('./serverConstants');
 const { randInt, frames } = require('./serverUtils');
 const { ServerBullet } = require('./ServerBullet');
 
+let nextMonsterId = 1;
+
 /**
  * Server-side monster AI for Wizard of Wor.
  * Handles pathfinding (primary + secondary direction with optional diagonal),
@@ -12,6 +14,8 @@ const { ServerBullet } = require('./ServerBullet');
  */
 class ServerMonster {
     constructor(type, coordinate, engine) {
+        this.id = `monster-${nextMonsterId++}`;
+        this.dungeonId = engine.id;
         this.type = type;
         this.status = 'alive';
         this.engine = engine;

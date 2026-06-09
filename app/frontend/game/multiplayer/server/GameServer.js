@@ -409,6 +409,19 @@ class GameServer {
         this.respawnPlayerInHome(player);
     }
 
+    resolveCollapseTimeoutPlayers(collapsingDungeon) {
+        for (const player of [...collapsingDungeon.players]) {
+            if (!player || !player.id) continue;
+            if (player.isBot) {
+                this.removeBot(player.id);
+            } else if (player.homeDungeonId === collapsingDungeon.id) {
+                collapsingDungeon.removePlayer(player);
+            } else {
+                this.applyCollapseTimeoutPenalty(collapsingDungeon, player);
+            }
+        }
+    }
+
     handlePlayerFinalDeath(player, sourceDungeon = null) {
         if (!player || !player.id) return;
         const homeDungeon = this.dungeons.get(player.homeDungeonId);

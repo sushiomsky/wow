@@ -326,21 +326,73 @@ function testCollapseStateVisibleInSnapshot() {
   assert.ok(snapshot.collapseRemainingSeconds >= 59 && snapshot.collapseRemainingSeconds <= 60, 'snapshot includes client-displayable remaining seconds');
 }
 
-function testDestroyedDungeonWaitsForMonsterCleanup() {
+function testSnapshotIncludesSpecModelFields() {
   const server = makeServer();
   const dungeon = addDungeon(server);
+  const target = addDungeon(server);
+  const player = new ServerPlayer(0, dungeon, 'owner', dungeon.id);
+  player.status = 'alive';
+  dungeon.addPlayer(player);
+  dungeon.leftTunnelTarget = { dungeonId: target.id, entrySide: 'right' };
+  const monster = new ServerMonster('burwor', null, dungeon);
+  dungeon.monsters.push(monster);
+  player.bullet = new ServerBullet(player, player.x, player.y, 'right', dungeon);
+
+  const snapshot = dungeon.serialize();
+  assert.equal(snapshot.ownerPlayerId, 'owner');
+  assert.equal(snapshot.state, STATE.ACTIVE);
+  assert.equal(snapshot.playersInside, 1);
+  assert.equal(snapshot.leftTunnelState.directionMode, 'CONNECTED_TWO_WAY');
+  assert.equal(snapshot.rightTunnelState.directionMode, 'SAME_DUNGEON_ONLY');
+  assert.equal(snapshot.players[0].currentDungeonId, dungeon.id);
+  assert.equal(snapshot.players[0].aliveState, 'alive');
+  assert.equal(snapshot.monsters[0].dungeonId, dungeon.id);
+  assert.ok(snapshot.monsters[0].id.startsWith('monster-'));
+  assert.equal(snapshot.monsters[0].alive, true);
+  assert.equal(snapshot.bullets[0].ownerPlayerId, 'owner');
+  assert.equal(snapshot.bullets[0].dungeonId, dungeon.id);
+  assert.equal(snapshot.bullets[0].active, true);
+}
+
+function testDestroyedDungeonWaitsForPlayerAndMonsterCleanup() {
+  const server = makeServer();
+  const dungeon = addDungeon(server);
+  const player = new ServerPlayer(0, dungeon, 'owner', dungeon.id);
+  player.status = 'out';
+  dungeon.addPlayer(player);
   const monster = new ServerMonster('burwor', null, dungeon);
   monster.status = 'alive';
   dungeon.monsters.push(monster);
   dungeon.lifecycleState = STATE.EMPTY;
 
   dungeon.tick({});
-  assert.equal(server.dungeons.has(dungeon.id), true, 'empty dungeon with live monsters is not destroyed yet');
+  assert.equal(server.dungeons.has(dungeon.id), true, 'empty dungeon with a player slot is not destroyed yet');
   assert.equal(dungeon.lifecycleState, STATE.EMPTY);
+
+  dungeon.removePlayer(player);
+  dungeon.tick({});
+  assert.equal(server.dungeons.has(dungeon.id), true, 'empty dungeon with live monsters is not destroyed yet');
 
   monster.status = 'died';
   dungeon.tick({});
-  assert.equal(server.dungeons.has(dungeon.id), false, 'dungeon is destroyed after monster cleanup');
+  assert.equal(server.dungeons.has(dungeon.id), false, 'dungeon is destroyed after player and monster cleanup');
+}
+
+function testCollapseTimeoutResolvesBotAndOwnerSlotsBeforeDestruction() {
+  const server = makeServer();
+  const dungeon = addDungeon(server);
+  dungeon.lifecycleState = STATE.COLLAPSING;
+  dungeon.collapseUntil = Date.now() - 1;
+  const owner = new ServerPlayer(0, dungeon, 'owner', dungeon.id);
+  owner.status = 'out';
+  dungeon.addPlayer(owner);
+  const bot = server.spawnBot(dungeon.id, 1);
+  assert.ok(bot);
+
+  dungeon.tick({});
+  assert.equal(dungeon.players.every((p) => p.id === null), true, 'timeout resolves every remaining player slot');
+  assert.equal(server.bots.has(bot.id), false, 'timeout removes filler bot from registry');
+  assert.equal(server.dungeons.has(dungeon.id), false, 'resolved empty dungeon is destroyed');
 }
 
 function testBotPartnerDoesNotBlockOwnerCollapse() {
@@ -386,8 +438,10 @@ const tests = [
   testSharedHomeDoesNotCollapseUntilAllRealPlayersOut,
   testCollapseTimeoutFinalDeathCollapsesVisitorHome,
   testCollapseStateVisibleInSnapshot,
+  testSnapshotIncludesSpecModelFields,
   testBotPartnerDoesNotBlockOwnerCollapse,
-  testDestroyedDungeonWaitsForMonsterCleanup,
+  testDestroyedDungeonWaitsForPlayerAndMonsterCleanup,
+  testCollapseTimeoutResolvesBotAndOwnerSlotsBeforeDestruction,
   testDestroyedDungeonClearsStaleTunnelTargets,
 ];
 

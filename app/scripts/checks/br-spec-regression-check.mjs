@@ -437,12 +437,18 @@ function testSnapshotIncludesSpecModelFields() {
   assert.equal(snapshot.leftTunnelState.directionMode, 'CONNECTED_TWO_WAY');
   assert.equal(snapshot.rightTunnelState.directionMode, 'SAME_DUNGEON_ONLY');
   assert.equal(snapshot.players[0].currentDungeonId, dungeon.id);
-  assert.equal(snapshot.players[0].aliveState, 'alive');
+  assert.equal(snapshot.players[0].aliveState, 'ACTIVE');
+  assert.deepEqual(snapshot.players[0].position, { x: player.x, y: player.y, col: player.col, row: player.row });
+  assert.equal(snapshot.players[0].direction, player.d);
   assert.equal(snapshot.monsters[0].dungeonId, dungeon.id);
   assert.ok(snapshot.monsters[0].id.startsWith('monster-'));
+  assert.equal(snapshot.monsters[0].state, 'alive');
   assert.equal(snapshot.monsters[0].alive, true);
   assert.equal(snapshot.bullets[0].ownerPlayerId, 'owner');
   assert.equal(snapshot.bullets[0].dungeonId, dungeon.id);
+  assert.deepEqual(snapshot.bullets[0].position, { x: player.bullet.x, y: player.bullet.y });
+  assert.equal(snapshot.bullets[0].direction, 'right');
+  assert.equal(snapshot.bullets[0].lifetime, 0);
   assert.equal(snapshot.bullets[0].active, true);
 }
 
@@ -543,6 +549,41 @@ function testDestroyedMiddleDungeonRepairsBattleRoyaleReachability() {
   assert.equal(c.leftTunnelTarget?.dungeonId, a.id);
 }
 
+function testSerializedStateIncludesTopLevelSpecSnapshotFields() {
+  const server = makeServer();
+  server._tickCount = 42;
+  const dungeon = addDungeon(server);
+  const player = new ServerPlayer(0, dungeon, 'owner', dungeon.id);
+  player.status = 'alive';
+  player.score = 1200;
+  dungeon.addPlayer(player);
+
+  const serialized = server._prepareSerializedDungeonState(dungeon);
+  const snapshot = JSON.parse(`${serialized}}`);
+  assert.equal(snapshot.tick, 42);
+  assert.equal(snapshot.serverTick, 42);
+  assert.equal(typeof snapshot.serverTime, 'number');
+  assert.equal(snapshot.currentDungeonId, dungeon.id);
+  assert.deepEqual(snapshot.dungeonsVisibleToClient, [dungeon.id]);
+  assert.equal(snapshot.collapseState, null);
+  assert.deepEqual(snapshot.scoreboard, [{ id: 'owner', name: 'owner', lives: 3, score: 1200, aliveState: 'ACTIVE' }]);
+}
+
+function testSentStateIncludesLocalPlayerIdInsideSnapshot() {
+  const server = makeServer();
+  let raw = null;
+  server._sendRaw = (_ws, data) => { raw = data; };
+  const dungeon = addDungeon(server);
+  const player = new ServerPlayer(0, dungeon, 'owner', dungeon.id);
+  dungeon.addPlayer(player);
+  const conn = makeConn(player, dungeon.id);
+
+  server._sendSerializedState(conn, server._prepareSerializedDungeonState(dungeon));
+  const message = JSON.parse(raw);
+  assert.equal(message.myPlayerId, 'owner');
+  assert.equal(message.state.localPlayerId, 'owner');
+}
+
 function testSnapshotReportsStaleTunnelAndDestructionReadiness() {
   const server = makeServer();
   const dungeon = addDungeon(server);
@@ -584,6 +625,8 @@ const tests = [
   testCollapseTimeoutResolvesBotAndOwnerSlotsBeforeDestruction,
   testDestroyedDungeonClearsStaleTunnelTargets,
   testDestroyedMiddleDungeonRepairsBattleRoyaleReachability,
+  testSerializedStateIncludesTopLevelSpecSnapshotFields,
+  testSentStateIncludesLocalPlayerIdInsideSnapshot,
   testSnapshotReportsStaleTunnelAndDestructionReadiness,
 ];
 

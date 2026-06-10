@@ -691,10 +691,12 @@ class DungeonInstance {
                 // doesn't change when they visit a foreign dungeon and get a different num.
                 colorNum: p._homeSlot !== undefined ? p._homeSlot : (p.homeSlot ?? p.num),
                 x: p.x, y: p.y,
+                position: { x: p.x, y: p.y, col: p.col, row: p.row },
                 col: p.col, row: p.row,
                 d: p.d,
+                direction: p.d,
                 status: p.status,
-                aliveState: p.status,
+                aliveState: this._getPlayerAliveState(p),
                 animationSequence: p.animationSequence,
                 frameCounters: { ...p.frameCounters },
                 lives: p.lives,
@@ -709,7 +711,9 @@ class DungeonInstance {
                 x: m.x, y: m.y,
                 col: m.col, row: m.row,
                 d: m.d,
+                direction: m.d,
                 status: m.status,
+                state: m.status,
                 alive: m.status === 'alive',
                 visible: m.visible,
                 animationSequence: m.animationSequence,
@@ -721,6 +725,15 @@ class DungeonInstance {
     // Export state for spectators (same as serialize but can be enhanced later)
     exportState() {
         return this.serialize();
+    }
+
+    _getPlayerAliveState(player) {
+        if (!player.id) return 'DISCONNECTED';
+        if (player.status === 'alive' || player.status === 'enter') return 'ACTIVE';
+        if (player.status === 'dead') return 'DEAD';
+        if (player.status === 'wait') return 'RESPAWNING';
+        if (player.status === 'out') return player.lives <= 0 ? 'FINAL_DEAD' : 'DISCONNECTED';
+        return player.status.toUpperCase();
     }
 
     _getClearState() {
@@ -755,11 +768,11 @@ class DungeonInstance {
         const bullets = [];
         for (let i = 0; i < 2; i++) {
             const p = this.players[i];
-            if (p.bullet) bullets.push({ ownerType: 'player', ownerNum: p.num, id: p.bullet.id, ownerPlayerId: p.bullet.ownerPlayerId, dungeonId: p.bullet.dungeonId, active: p.bullet.active, lifetimeTicks: p.bullet.lifetimeTicks, speed: p.bullet.speed, x: p.bullet.x, y: p.bullet.y, d: p.bullet.d, bw: p.bullet.bw, bh: p.bullet.bh });
+            if (p.bullet) bullets.push({ ownerType: 'player', ownerNum: p.num, id: p.bullet.id, ownerPlayerId: p.bullet.ownerPlayerId, dungeonId: p.bullet.dungeonId, active: p.bullet.active, lifetimeTicks: p.bullet.lifetimeTicks, lifetime: p.bullet.lifetimeTicks, speed: p.bullet.speed, x: p.bullet.x, y: p.bullet.y, position: { x: p.bullet.x, y: p.bullet.y }, d: p.bullet.d, direction: p.bullet.d, bw: p.bullet.bw, bh: p.bullet.bh });
         }
         for (let i = 0; i < this.monsters.length; i++) {
             const m = this.monsters[i];
-            if (m.bullet) bullets.push({ ownerType: 'monster', ownerNum: -1, id: m.bullet.id, ownerPlayerId: null, dungeonId: m.bullet.dungeonId, active: m.bullet.active, lifetimeTicks: m.bullet.lifetimeTicks, speed: m.bullet.speed, x: m.bullet.x, y: m.bullet.y, d: m.bullet.d, bw: m.bullet.bw, bh: m.bullet.bh });
+            if (m.bullet) bullets.push({ ownerType: 'monster', ownerNum: -1, id: m.bullet.id, ownerPlayerId: null, dungeonId: m.bullet.dungeonId, active: m.bullet.active, lifetimeTicks: m.bullet.lifetimeTicks, lifetime: m.bullet.lifetimeTicks, speed: m.bullet.speed, x: m.bullet.x, y: m.bullet.y, position: { x: m.bullet.x, y: m.bullet.y }, d: m.bullet.d, direction: m.bullet.d, bw: m.bullet.bw, bh: m.bullet.bh });
         }
         return bullets;
     }

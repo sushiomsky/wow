@@ -773,7 +773,19 @@ class GameServer {
     _prepareSerializedDungeonState(dungeon) {
         const state = dungeon.serialize();
         state.serverTick = this._tickCount || 0;
+        state.tick = state.serverTick;
         state.serverTimeMs = Date.now();
+        state.serverTime = state.serverTimeMs;
+        state.currentDungeonId = dungeon.id;
+        state.dungeonsVisibleToClient = [dungeon.id];
+        state.collapseState = dungeon.lifecycleState === STATE.COLLAPSING ? {
+            state: dungeon.lifecycleState,
+            collapseUntil: dungeon.collapseUntil,
+            collapseRemainingSeconds: state.collapseRemainingSeconds,
+        } : null;
+        state.scoreboard = state.players
+            .filter((player) => player.id !== null)
+            .map((player) => ({ id: player.id, name: player.name, lives: player.lives, score: player.score, aliveState: player.aliveState }));
         state.tickRate = SCAN_FPS;
         state.snapshotRate = Math.round(SCAN_FPS / SNAPSHOT_EVERY_TICKS);
         state.sounds = dungeon.drainSounds();
@@ -785,7 +797,7 @@ class GameServer {
         const myPlayerId = conn.player ? conn.player.id : null;
         this._sendRaw(
             conn.ws,
-            `{"type":"state","state":${serializedStateWithoutBrace},"myPlayerId":${JSON.stringify(myPlayerId)}}}`
+            `{"type":"state","state":${serializedStateWithoutBrace},"localPlayerId":${JSON.stringify(myPlayerId)}},"myPlayerId":${JSON.stringify(myPlayerId)}}`
         );
     }
 

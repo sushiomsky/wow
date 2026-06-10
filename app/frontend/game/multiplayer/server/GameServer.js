@@ -385,6 +385,7 @@ class GameServer {
             this.dungeonGraph.removeDungeon(dungeonId);
         }
         this._clearTunnelTargetsToDungeon(dungeonId);
+        if (this.battleRoyaleMode) this._repairBattleRoyaleNetwork();
         
         console.log(`[GameServer] dungeon ${dungeonId} destroyed`);
     }
@@ -394,6 +395,48 @@ class GameServer {
             if (dungeon.leftTunnelTarget?.dungeonId === dungeonId) dungeon.leftTunnelTarget = null;
             if (dungeon.rightTunnelTarget?.dungeonId === dungeonId) dungeon.rightTunnelTarget = null;
         }
+    }
+
+    _repairBattleRoyaleNetwork() {
+        const dungeons = Array.from(this.dungeons.values())
+            .filter(dungeon => dungeon.matchMode === 'endless_br' && dungeon.lifecycleState !== STATE.DESTROYED && this._hasRealPlayers(dungeon));
+        if (dungeons.length < 2) return;
+
+        const reachable = this._collectReachableDungeonIds(dungeons[0].id);
+        if (dungeons.every(dungeon => reachable.has(dungeon.id))) return;
+
+        for (const dungeon of dungeons) {
+            dungeon.leftTunnelTarget = null;
+            dungeon.rightTunnelTarget = null;
+        }
+        this.dungeonGraph = new DungeonGraph();
+        for (const dungeon of dungeons) this.dungeonGraph.addDungeon(dungeon.id);
+
+        const linkCount = dungeons.length === 2 ? 1 : dungeons.length;
+        for (let i = 0; i < linkCount; i++) {
+            const current = dungeons[i];
+            const next = dungeons[(i + 1) % dungeons.length];
+            if (current.id === next.id) continue;
+            this.dungeonGraph.connect(current.id, next.id);
+            current.rightTunnelTarget = { dungeonId: next.id, entrySide: 'left' };
+            next.leftTunnelTarget = { dungeonId: current.id, entrySide: 'right' };
+        }
+    }
+
+    _collectReachableDungeonIds(startDungeonId) {
+        const seen = new Set();
+        const stack = [startDungeonId];
+        while (stack.length) {
+            const id = stack.pop();
+            if (seen.has(id)) continue;
+            const dungeon = this.dungeons.get(id);
+            if (!dungeon) continue;
+            seen.add(id);
+            for (const target of [dungeon.leftTunnelTarget, dungeon.rightTunnelTarget]) {
+                if (target?.dungeonId && !seen.has(target.dungeonId)) stack.push(target.dungeonId);
+            }
+        }
+        return seen;
     }
 
     isDungeonEntryBlocked(targetDungeonId, sourceDungeonId = null) {

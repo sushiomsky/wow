@@ -514,6 +514,35 @@ function testDestroyedDungeonClearsStaleTunnelTargets() {
   assert.equal(a.rightTunnelTarget, null);
 }
 
+function testDestroyedMiddleDungeonRepairsBattleRoyaleReachability() {
+  const server = makeServer();
+  server.battleRoyaleMode = true;
+  server.dungeonGraph = new DungeonGraph();
+  const a = addDungeon(server);
+  const b = addDungeon(server);
+  const c = addDungeon(server);
+  for (const [index, dungeon] of [a, b, c].entries()) {
+    dungeon.matchMode = 'endless_br';
+    const player = new ServerPlayer(0, dungeon, `p${index}`, dungeon.id);
+    player.status = 'alive';
+    dungeon.addPlayer(player);
+    server.dungeonGraph.addDungeon(dungeon.id);
+  }
+  server.dungeonGraph.connect(a.id, b.id);
+  server.dungeonGraph.connect(b.id, c.id);
+  a.rightTunnelTarget = { dungeonId: b.id, entrySide: 'left' };
+  b.leftTunnelTarget = { dungeonId: a.id, entrySide: 'right' };
+  b.rightTunnelTarget = { dungeonId: c.id, entrySide: 'left' };
+  c.leftTunnelTarget = { dungeonId: b.id, entrySide: 'right' };
+
+  server.onDungeonDestroyed(b.id);
+  const reachable = server._collectReachableDungeonIds(a.id);
+  assert.equal(server.dungeons.has(b.id), false);
+  assert.equal(reachable.has(c.id), true, 'remaining active BR dungeons stay reachable after middle removal');
+  assert.equal(a.rightTunnelTarget?.dungeonId, c.id);
+  assert.equal(c.leftTunnelTarget?.dungeonId, a.id);
+}
+
 function testSnapshotReportsStaleTunnelAndDestructionReadiness() {
   const server = makeServer();
   const dungeon = addDungeon(server);
@@ -554,6 +583,7 @@ const tests = [
   testDestroyedDungeonWaitsForPlayerAndMonsterCleanup,
   testCollapseTimeoutResolvesBotAndOwnerSlotsBeforeDestruction,
   testDestroyedDungeonClearsStaleTunnelTargets,
+  testDestroyedMiddleDungeonRepairsBattleRoyaleReachability,
   testSnapshotReportsStaleTunnelAndDestructionReadiness,
 ];
 

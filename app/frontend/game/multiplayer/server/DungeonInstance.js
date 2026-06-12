@@ -22,6 +22,13 @@ const FAST_SPEED_MULTIPLIER = 1.8;
 
 // Lifecycle states
 const STATE = { ACTIVE: 'active', COLLAPSING: 'collapsing', EMPTY: 'empty', DESTROYED: 'destroyed' };
+const SPEC_STATE = {
+    ACTIVE: 'ACTIVE',
+    REPLACING: 'REPLACING',
+    COLLAPSING: 'COLLAPSING',
+    EMPTY: 'EMPTY',
+    DESTROYED: 'DESTROYED',
+};
 
 let nextDungeonId = 1;
 
@@ -647,7 +654,7 @@ class DungeonInstance {
         return {
             dungeonId: this.id,
             ownerPlayerId: this.ownerPlayerId,
-            state: this.lifecycleState,
+            state: this._getSpecDungeonState(),
             lifecycleState: this.lifecycleState,
             playersInside: this.players.filter(p => p.id !== null).length,
             scene: this.scene,
@@ -725,6 +732,14 @@ class DungeonInstance {
     // Export state for spectators (same as serialize but can be enhanced later)
     exportState() {
         return this.serialize();
+    }
+
+    _getSpecDungeonState() {
+        if (this.lifecycleState === STATE.DESTROYED) return SPEC_STATE.DESTROYED;
+        if (this.lifecycleState === STATE.EMPTY) return SPEC_STATE.EMPTY;
+        if (this.lifecycleState === STATE.COLLAPSING) return SPEC_STATE.COLLAPSING;
+        if (this.scene === 'getReady' && this.level > 0) return SPEC_STATE.REPLACING;
+        return SPEC_STATE.ACTIVE;
     }
 
     _getPlayerAliveState(player) {

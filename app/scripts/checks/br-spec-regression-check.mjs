@@ -410,6 +410,7 @@ function testCollapseStateVisibleInSnapshot() {
   dungeon._checkLifecycle();
 
   const snapshot = dungeon.serialize();
+  assert.equal(snapshot.state, 'COLLAPSING');
   assert.equal(snapshot.lifecycleState, STATE.COLLAPSING);
   assert.equal(snapshot.collapseCountdownMs, 60000);
   assert.ok(snapshot.collapseUntil > Date.now(), 'snapshot includes collapse end time');
@@ -430,7 +431,8 @@ function testSnapshotIncludesSpecModelFields() {
 
   const snapshot = dungeon.serialize();
   assert.equal(snapshot.ownerPlayerId, 'owner');
-  assert.equal(snapshot.state, STATE.ACTIVE);
+  assert.equal(snapshot.state, 'ACTIVE');
+  assert.equal(snapshot.lifecycleState, STATE.ACTIVE);
   assert.equal(snapshot.playersInside, 1);
   assert.equal(snapshot.clearState, 'title');
   assert.equal(snapshot.destructionReady, false);
